@@ -1,0 +1,7 @@
+{
+  "schwelle_zeichen": 500000,
+  "regeln_max_zeichen": 8000,
+  "schonfrist_zeichen": 120000,
+  "veraltet_nach_tagen": 3,
+  "wiedervorlage_gesamt": 60000
+}

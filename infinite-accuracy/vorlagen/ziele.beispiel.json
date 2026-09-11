@@ -1,0 +1,9 @@
+{
+  "meinserver": {
+    "ssh": "benutzer@rechner.example",
+    "keys": [
+      "~/.ssh/id_ed25519"
+    ],
+    "temp": "/tmp/ia-"
+  }
+}

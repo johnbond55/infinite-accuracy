@@ -1,0 +1,6 @@
+__pycache__/
+*.pyc
+*.vor-*
+ziele.json
+journal.jsonl
+.venv/

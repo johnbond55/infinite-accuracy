@@ -1,0 +1,8 @@
+{
+  "name": "infinite-accuracy",
+  "description": "Delegiert eindimensionale Arbeitsgaenge an kleinere Modelle und nimmt jedes Ergebnis maschinell ab, statt es zu glauben.",
+  "version": "1.0.0",
+  "author": {
+    "name": "Johannes Volmer"
+  }
+}

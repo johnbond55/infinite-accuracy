@@ -1,0 +1,13 @@
+{
+  "name": "infinite-accuracy",
+  "owner": {
+    "name": "Johannes Volmer"
+  },
+  "plugins": [
+    {
+      "name": "infinite-accuracy",
+      "source": "./infinite-accuracy",
+      "description": "Kaskade aus planendem und ausfuehrendem Modell, mit maschineller Abnahme."
+    }
+  ]
+}
