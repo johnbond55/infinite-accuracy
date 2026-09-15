@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""ia_nachlauf.py — SessionEnd-Wrapper fuer das Aufraeum-Journal.
+"""nachlauf.py — SessionEnd-Wrapper fuer das Aufraeum-Journal.
 
 Duenner Wrapper um journal.py. Die Mechanik steht dort, hier wird nichts
 nachgebaut.

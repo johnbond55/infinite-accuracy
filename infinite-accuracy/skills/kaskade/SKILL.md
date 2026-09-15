@@ -14,6 +14,32 @@ sondern erwünscht.
 
 Herkunft, Messungen und Vorfälle: `doku/hintergrund.md`
 
+## Rollen und Modelle
+
+| Rolle | Wer | Modell | verankert in |
+|---|---|---|---|
+| Planen, entscheiden, Aufträge zuschneiden | Hauptsitzung | großes Modell — Fable oder Opus, gleichberechtigt | Modellwahl der Sitzung |
+| Ausführen | `ia-ausfuehrer` | sonnet | Agent-Frontmatter |
+| Lesen, melden | `ia-leser` | haiku | Agent-Frontmatter |
+| Abnehmen | `ia-pruefer` | haiku | Agent-Frontmatter |
+| jeder Agent ohne eigenes Modell (`general-purpose`, `Explore`, `Plan`) | — | sonnet | `CLAUDE_CODE_SUBAGENT_MODEL` im `env`-Block der `settings.json` |
+
+`CLAUDE_CODE_SUBAGENT_MODEL_FORCE` nie setzen: es überschreibt die Frontmatter-Modelle.
+Ohne diese Verankerung erbt ein Agent das Hauptmodell.
+
+## Der endlose Faden
+
+Delegation hält den Kontext schmal; den Rest erledigen Hooks und der Zettelkasten:
+
+1. Ab `ablage_schwelle_token` fordert `regelschub.py` am Userhalt die Ablage an —
+   Zettelkasten (Skill `zettel`) und Destillat.
+2. Die Verdichtung von Claude Code läuft von selbst. `ernte.py` gibt ihr eine
+   Anweisung mit Kennmarke und schiebt sie auf, solange nicht abgelegt ist.
+3. Danach legt `wiedervorlage.py` Regeln, Destillat und Karte vor und prüft die
+   Kennmarke. Früheres wird nachgeschlagen, nicht geraten.
+
+Einzelheiten: `doku/verdichtung.md`
+
 ## Der Zuschnitt
 
 Vier Teile, und alle vier müssen im Auftragstext stehen:
@@ -48,7 +74,7 @@ keine Verwaltung.
 2. **Prüfpunkte schreiben**, als JSON nach dem Muster in `abnahme.py`. Vor der
    Delegation, nicht danach — der Beweis wird vor dem Eingriff festgelegt.
 3. **Delegieren** an `ia-ausfuehrer` (`model: sonnet`). Reine Lesearbeit geht an
-   den eingebauten `Explore`-Agenten mit `model: haiku`.
+   `ia-leser` (`model: haiku`, im Frontmatter verankert).
 4. **Abnehmen** durch `ia-pruefer` (`model: haiku`), der `abnahme.py` fährt.
 5. **Auswerten:**
    - `STATUS: GRUEN` → weiter.
@@ -92,11 +118,15 @@ journal.py --liste                # zeigen, nichts ändern
 **`MSYS_NO_PATHCONV=1` ist bei Serverpfaden Pflicht.** Fehlt es, meldet
 `journal.py` `PFAD VERFAELSCHT` (Exit 3) — dann nachholen, nicht umgehen.
 
+Legt ein Befehl eine Temp-Datei auf einem Server mit `sudo` an, gehört sie root;
+das Aufräumen ohne `sudo` scheitert dann. Temp-Dateien deshalb als eigener
+Benutzer anlegen (`sudo install -m 644 -o <benutzer> …`).
+
 ## Selbstprüfung
 
 ```
-python pruefstand.py          # 62 bestanden, 0 durchgefallen · STATUS: GRUEN
-python pruefstand.py --rot    # 0 bestanden, 62 durchgefallen · muss fehlschlagen
+python pruefstand.py          # STATUS: GRUEN, 0 durchgefallen
+python pruefstand.py --rot    # STATUS: ESKALATION — muss fehlschlagen
 ```
 
 ## Dateien
@@ -105,9 +135,12 @@ python pruefstand.py --rot    # 0 bestanden, 62 durchgefallen · muss fehlschlag
 |---|---|
 | `abnahme.py` | führt Prüfbefehle aus, vergleicht, zählt |
 | `journal.py` | registriert und löscht temporäre Arbeitsdateien |
-| `konfig.py` | liest die Zielkonfiguration; ohne sie läuft alles lokal |
-| `pruefstand.py` | fährt die Schranken gegen Proben mit bekanntem Ausgang |
+| `konfig.py` | Konfiguration: Ziele, Zahlen, Schalter, Ablageorte; ohne sie läuft alles lokal |
+| `pruefstand.py` | fährt Schranken, Hooks, Zettelkasten und Installer gegen Proben mit bekanntem Ausgang |
 | `doku/` | warum alles so gebaut ist, je Modul eine Datei |
+| `../zettel/` | Zettelkasten: ablegen, suchen, lesen |
 | `../../agents/ia-ausfuehrer.md` | `model: sonnet` — führt aus, belegt jeden Schritt |
+| `../../agents/ia-leser.md` | `model: haiku` — liest und meldet, verändert nichts |
 | `../../agents/ia-pruefer.md` | `model: haiku` — nimmt ab, Skript hat Vorrang |
-| `../../hooks/nachlauf.py` | `SessionEnd` — räumt verwaiste Einträge nach 24 h |
+| `../../hooks/` | `regelschub`, `ernte`, `wiedervorlage`, `haertung`, `nachlauf`, `gedaechtnis`, `aktualisierung` |
+| `../../installieren.py` | installiert und ersetzt das Paket in einem Projekt |

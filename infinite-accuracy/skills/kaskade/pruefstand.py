@@ -2,8 +2,10 @@
 # -*- coding: utf-8 -*-
 """pruefstand.py — Proben gegen die eigenen Schranken.
 
-Faehrt die Schranken dieses Skills gegen Proben, deren Ausgang vorher
+Faehrt die Schranken dieses Pakets gegen Proben, deren Ausgang vorher
 feststeht — in beiden Richtungen: was durchgehen muss und was blocken muss.
+Verdichtung, Zettelkasten und Installer werden Ende-zu-Ende in temporaeren
+Ordnern geprobt.
 
 Begruendungen und Fallen: doku/pruefstand.md
 
@@ -14,8 +16,11 @@ Exit:    0 = alle bestanden · 1 = mindestens eine Probe durchgefallen
 """
 import json
 import os
+import shutil
+import subprocess
 import sys
 import tempfile
+from pathlib import Path
 
 HIER = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HIER)
@@ -34,21 +39,53 @@ def _scratch():
     return journal.erlaubte_praefixe("lokal")[0]
 
 
-def _hooks_laden():
-    """ernte.py und regelschub.py, falls sie neben dem Skill liegen."""
+def _wirft(f):
+    try:
+        f()
+        return False
+    except Exception:                                             # noqa: BLE001
+        return True
+
+
+def _hookordner():
     for kandidat in (os.path.join(os.path.dirname(os.path.dirname(HIER)), "hooks"),
                      os.path.join(os.path.dirname(HIER), "hooks")):
         if os.path.isfile(os.path.join(kandidat, "ernte.py")):
-            if kandidat not in sys.path:
-                sys.path.insert(0, kandidat)
-            try:
-                import ernte
-                import regelschub
-                import gedaechtnis
-                return ernte, regelschub, gedaechtnis
-            except Exception:                                     # noqa: BLE001
-                return None, None, None
-    return None, None, None
+            return kandidat
+    return None
+
+
+def _modul(name):
+    ordner = _hookordner()
+    if not ordner:
+        return None
+    if ordner not in sys.path:
+        sys.path.insert(0, ordner)
+    try:
+        return __import__(name)
+    except Exception:                                             # noqa: BLE001
+        return None
+
+
+def _hooks_laden():
+    """ernte.py, regelschub.py und gedaechtnis.py, falls sie neben dem Skill liegen."""
+    ernte, regelschub, ged = _modul("ernte"), _modul("regelschub"), _modul("gedaechtnis")
+    if ernte is None or regelschub is None or ged is None:
+        return None, None, None
+    return ernte, regelschub, ged
+
+
+def _hook_prozess(pfad, eingabe, umgebung):
+    env = dict(os.environ)
+    env.update(umgebung)
+    env["PYTHONIOENCODING"] = "utf-8"
+    try:
+        p = subprocess.run([sys.executable, "-X", "utf8", pfad], input=json.dumps(eingabe),
+                           stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                           encoding="utf-8", errors="replace", env=env, timeout=120)
+        return p.returncode, p.stdout, p.stderr
+    except Exception as ex:                                       # noqa: BLE001
+        return -1, "", str(ex)
 
 
 def _konfigproben():
@@ -57,9 +94,18 @@ def _konfigproben():
     p.append(("unbekannter Konfigurationswert wirft",
               _wirft(lambda: konfig.zahl("gibtsnicht")), True,
               "ein Tippfehler im Namen darf nicht still eine 0 ergeben"))
+    p.append(("unbekannter Schalter wirft",
+              _wirft(lambda: konfig.zeichen("gibtsnicht")), True,
+              "ein Tippfehler im Namen darf nicht still die Vorgabe ergeben"))
+    p.append(("unbekannter Ablageort wirft",
+              _wirft(lambda: konfig.pfad("gibtsnicht")), True,
+              "ein Tippfehler darf nicht still irgendwohin schreiben"))
     p.append(("bekannter Wert kommt aus der Vorgabe",
-              konfig.zahl("schwelle_zeichen") == konfig.VORGABEN["schwelle_zeichen"],
-              True, "ohne konfig.json gelten die eingebauten Werte"))
+              konfig.zahl("riegel_bis_token") == konfig.VORGABEN["riegel_bis_token"],
+              True, "ohne Eintrag in konfig.json gelten die eingebauten Werte"))
+    p.append(("Ablageorte sind absolut",
+              all(os.path.isabs(konfig.pfad(n)) for n in konfig.PFADE), True,
+              "relative Orte haengen am Arbeitsverzeichnis des Hooks"))
     p.append(("Textvorgabe greift, wenn keine Datei da ist",
               konfig.text("gibtsnicht.md", vorgabe="VORGABE") == "VORGABE", True,
               "das Paket muss ohne Konfiguration laufen"))
@@ -73,7 +119,7 @@ def _konfigproben():
 
 
 def _hookproben():
-    """Proben fuer die Hooks — nur wenn sie neben dem Skill liegen."""
+    """Proben fuer die Tilgung — nur wenn die Hooks neben dem Skill liegen."""
     ernte, regelschub, ged = _hooks_laden()
     if ernte is None:
         return [("Hooks vorhanden (uebersprungen)", True, True,
@@ -103,18 +149,27 @@ def _hookproben():
     p.append(("Schonfrist schuetzt das Ende",
               ernte._schonfrist_grenze(["a" * 100, "b" * 100], 150) == 0, True,
               "der lebende Chat darf nicht angefasst werden"))
-    zeile = json.dumps({"message": {"content": [
-        {"type": "text", "text": "x" * 10},
-        {"type": "thinking", "thinking": "y" * 5}]}})
-    p.append(("Kontextzaehler zaehlt Text und Denken",
-              regelschub._zeichen_der_zeile(zeile), 15,
-              "Denken landet im Fenster und muss mitgezaehlt werden"))
-    p.append(("Kontextzaehler vertraegt Schrott",
-              regelschub._zeichen_der_zeile("kein json"), 0,
-              "eine kaputte Zeile darf den Zaehler nicht kippen"))
     p.append(("Destillatauftrag ueberlebt geschweifte Klammern",
               "{eigene}" in regelschub.destillat_auftrag(4, "x{eigene}y"), True,
               "str.format wuerde hier abstuerzen — deshalb replace"))
+
+    tmp = tempfile.mkdtemp(prefix="ia-tilgung-")
+    try:
+        pfad = os.path.join(tmp, "t.jsonl")
+        zeilen = [json.dumps({"message": {"content": "alt sk-" + "q" * 40}}),
+                  json.dumps({"message": {"content": "Trenner\u2028bleibt"}}, ensure_ascii=False)]
+        with open(pfad, "w", encoding="utf-8", newline="\n") as f:
+            f.write("\n".join(zeilen) + "\n")
+        n = ernte.transkript_haerten(pfad, schonfrist_zeichen=0)
+        with open(pfad, "r", encoding="utf-8", newline="") as f:
+            danach = f.read()
+        p.append(("Tilgung im Transkript greift", n, 1, "Geheimnis in einer alten Zeile"))
+        p.append(("Zeilentrenner U+2028 zerlegt keine Zeile",
+                  danach.count("\n") == 2 and all(json.loads(z) for z in danach.split("\n") if z),
+                  True, "splitlines() trennte dort und zerbrach das JSON des Transkripts"))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
     for ph in ["{env:KEY}", "$MEINVAR", "<dein-token>", "changeme", "xxxxx"]:
         p.append(("Platzhalter loest keinen Alarm aus: %s" % ph,
                   bool(ged.PLATZHALTER.match(ph)), True,
@@ -125,16 +180,314 @@ def _hookproben():
     return p
 
 
-def _wirft(f):
+def _transkript(ordner, name, zeilen):
+    pfad = os.path.join(ordner, name)
+    with open(pfad, "w", encoding="utf-8", newline="\n") as f:
+        for z in zeilen:
+            f.write(json.dumps(z, ensure_ascii=False) + "\n")
+    return pfad
+
+
+def _antwort(tokens):
+    return {"type": "assistant",
+            "message": {"content": [{"type": "text", "text": "ok"}],
+                        "usage": {"input_tokens": 1, "cache_creation_input_tokens": 0,
+                                  "cache_read_input_tokens": tokens - 1}}}
+
+
+def _verdichtungsproben():
+    """Ablage-Auftrag, Riegel, Anweisung, Kennmarke — bis zum echten Hook-Prozess."""
+    ernte, regelschub, _ = _hooks_laden()
+    if ernte is None:
+        return [("Verdichtung (uebersprungen)", True, True,
+                 "ohne hooks/-Ordner gibt es nichts zu pruefen")]
+    p = []
+    tmp = tempfile.mkdtemp(prefix="ia-verdichtung-")
     try:
-        f()
-        return False
+        t1 = _transkript(tmp, "a.jsonl", [_antwort(150000)])
+        tok, verdichtet = ernte.kontext_token(t1)
+        p.append(("Kontext kommt aus der usage-Zeile", tok, 150000 == tok,
+                  "Zeichen zu zaehlen verfehlte das Verhaeltnis um bis zu Faktor 14"))
+        p.append(("ohne Verdichtungsmarke nicht verdichtet", verdichtet, False,
+                  "sonst wuerde der Auftrag bei jedem Prompt neu scharf"))
+        t2 = _transkript(tmp, "b.jsonl",
+                         [_antwort(150000), {"type": "system", "subtype": "compact_boundary"}])
+        p.append(("Verdichtungsmarke hinter der Antwort wird erkannt",
+                  ernte.kontext_token(t2)[1], True,
+                  "danach muss der Ablage-Auftrag wieder scharf werden"))
+
+        p.append(("Riegel sperrt automatische Verdichtung ohne Ablage",
+                  bool(ernte.riegel_grund("auto", 200000, {})), True,
+                  "sonst faellt Unabgelegtes aus dem Kontext"))
+        p.append(("Riegel laesst manuelle Verdichtung durch",
+                  bool(ernte.riegel_grund("manual", 200000, {})), False,
+                  "wer /compact tippt, will verdichten"))
+        p.append(("Riegel gibt ueber der Grenze frei",
+                  bool(ernte.riegel_grund("auto", 10 ** 7, {})), False,
+                  "sonst laeuft das Fenster voll"))
+        destillat = os.path.join(tmp, "destillat.md")
+        with open(destillat, "w", encoding="utf-8") as f:
+            f.write("# Destillat\nInhalt-Probe")
+        frisch = {"destillat": destillat, "auftrag_ts": 0}
+        p.append(("Riegel gibt nach frischer Ablage frei",
+                  bool(ernte.riegel_grund("auto", 200000, frisch)), False,
+                  "abgelegt ist abgelegt"))
+
+        anweisung = ernte.verdichtungs_anweisung("ia-probe-1", frisch)
+        p.append(("Anweisung traegt die Kennmarke", "ia-probe-1" in anweisung, True,
+                  "ohne Kennmarke ist die Uebernahme nicht pruefbar"))
+        p.append(("Anweisung traegt das Destillat", "Inhalt-Probe" in anweisung, True,
+                  "das Destillat ist der Grundstock der Zusammenfassung"))
+
+        t3 = _transkript(tmp, "c.jsonl", [
+            _antwort(100),
+            {"type": "user", "isCompactSummary": True,
+             "message": {"content": "Zusammenfassung [infinite-accuracy Kennmarke ia-probe-1] Rest"}}])
+        zus = ernte.letzte_zusammenfassung(t3)
+        p.append(("Zusammenfassung wird im Transkript gefunden",
+                  zus is not None and "ia-probe-1" in zus, True,
+                  "die Kennmarkenpruefung braucht den Text"))
+        p.append(("Kennmarke wird bestaetigt",
+                  ernte.kennmarke_pruefen("ia-probe-1", zus)[0] == "ok", True,
+                  "Regelfall"))
+        p.append(("fehlende Kennmarke wird gemeldet",
+                  ernte.kennmarke_pruefen("ia-andere", zus)[0] == "fehlt", True,
+                  "ein Update von Claude Code darf nicht still alles aushebeln"))
+        p.append(("ohne Zusammenfassung heisst unpruefbar, nicht fehlt",
+                  ernte.kennmarke_pruefen("ia-probe-1", None)[0] == "unpruefbar", True,
+                  "ein Fehlalarm bei jeder Verdichtung wird ignoriert"))
+        p.append(("Ablage-Auftrag ueberlebt geschweifte Klammern",
+                  "{eigene}" in regelschub.auftrag_text(200000, "x{eigene}y", "e.json"), True,
+                  "str.format wuerde hier abstuerzen"))
+
+        konf = os.path.join(tmp, "konf")
+        os.makedirs(konf)
+        with open(os.path.join(konf, "konfig.json"), "w", encoding="utf-8") as f:
+            json.dump({"pfade": {"sitzungen": os.path.join(tmp, "sitzungen"),
+                                 "state": os.path.join(tmp, "state"),
+                                 "zettelkasten": os.path.join(tmp, "zk")}}, f)
+        t4 = _transkript(tmp, "d.jsonl", [_antwort(200000)])
+        eingabe = {"hook_event_name": "PreCompact", "trigger": "auto",
+                   "transcript_path": t4, "session_id": "probe-sitzung", "cwd": tmp}
+        rc, aus, _ = _hook_prozess(ernte.__file__, eingabe, {"IA_KONFIG": konf})
+        p.append(("PreCompact ohne Ablage endet mit Exit 2", rc == 2, True,
+                  "Exit 2 ist das Signal an Claude Code, die Verdichtung aufzuschieben"))
+        eingabe["trigger"] = "manual"
+        rc, aus, _ = _hook_prozess(ernte.__file__, eingabe, {"IA_KONFIG": konf})
+        p.append(("PreCompact manuell gibt die Anweisung aus",
+                  rc == 0 and "Kennmarke" in aus, True,
+                  "die Standardausgabe wird zur Anweisung an die Zusammenfassung"))
+        stand = ernte.stand_lesen(tmp, "probe-sitzung")
+        p.append(("ohne Einstellung kein Zugriff auf den echten Stand",
+                  "kennmarke" in stand, False,
+                  "der Probenprozess schreibt nur in seinen Probenordner"))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+    return p
+
+
+def _zettel_laden():
+    ordner = os.path.join(os.path.dirname(HIER), "zettel")
+    if not os.path.isfile(os.path.join(ordner, "zettel.py")):
+        return None
+    if ordner not in sys.path:
+        sys.path.insert(0, ordner)
+    try:
+        import zettel
+        return zettel
     except Exception:                                             # noqa: BLE001
-        return True
+        return None
+
+
+def _zettelproben():
+    zettel = _zettel_laden()
+    if zettel is None:
+        return [("Zettelkasten vorhanden (uebersprungen)", True, True,
+                 "ohne skills/zettel gibt es nichts zu pruefen")]
+    p = []
+    alt_zk, alt_state = zettel.ZK, zettel.STATE
+    tmp = tempfile.mkdtemp(prefix="ia-zettel-")
+    try:
+        zettel.setzen_wurzel(tmp)
+        zettel.setzen_state(tmp)
+        n, _ = zettel.ablegen({
+            "quelle": "probe",
+            "eintraege": [
+                {"titel": "Hiebsatz", "thema": "Forsteinrichtung",
+                 "text": "**Ausgangslage:** A\n\n**Weg:** B\n\n**Ergebnis:** 42 Festmeter",
+                 "schlagworte": ["hiebsatz", "Bäume"]},
+                {"titel": "Wegebau", "thema": "Wege", "text": "Schotter 0/32",
+                 "schlagworte": ["wegebau"]}],
+            "dossiers": {"Forsteinrichtung": {"stand": "Hiebsatz steht.",
+                                              "gesichert": "- 42 Festmeter",
+                                              "offen": "- [ ] Kulturen"}},
+            "erkenntnisse": ["Ein Fakt, eine Datei."]})
+        p.append(("Ablage legt beide Eintraege ab", n == 2, True, "je Thema ein Eintrag"))
+        tage = list(Path(tmp, "Journal").glob("*/*.md"))
+        p.append(("Journal-Tagesseite entsteht", len(tage) == 1, True,
+                  "je Tag eine Seite, append-only"))
+        tagtext = tage[0].read_text(encoding="utf-8") if tage else ""
+        p.append(("Umlaut im Schlagwort wird zum Slug", "#baeume" in tagtext, True,
+                  "Register und Suche arbeiten mit Slugs"))
+        doss = zettel.dossier_text("Forsteinrichtung")
+        p.append(("Besuchs-Log verlinkt den Journal-Eintrag",
+                  "[[Journal/" in doss.split("## Besuchs-Log")[-1], True,
+                  "der Besuchsvermerk entsteht beim Ablegen"))
+        p.append(("Stand geschrieben, Besuchs-Log bleibt",
+                  "Hiebsatz steht." in doss and "## Besuchs-Log" in doss, True,
+                  "die Titelseite wird neu geschrieben, der Log nie"))
+        uebersicht = Path(tmp, "Dossiers.md")
+        p.append(("Uebersicht verlinkt das Dossier",
+                  uebersicht.is_file() and "[[Dossiers/forsteinrichtung]]"
+                  in uebersicht.read_text(encoding="utf-8"), True,
+                  "unverlinkt waere die Seite fuer den Hausmeister eine Waise"))
+        p.append(("Register traegt das Schlagwort",
+                  bool(zettel.register_treffer(["hiebsatz"])), True, "mittlere Abrufebene"))
+        p.append(("Suche findet das Dossier",
+                  "Dossier   Dossiers/forsteinrichtung" in zettel.suche(["Forsteinrichtung"]),
+                  True, "erste Stufe: Dossiername"))
+        p.append(("Suche findet ueber das Schlagwort",
+                  "Journal   Journal/" in zettel.suche(["hiebsatz"]), True,
+                  "zweite Stufe: Register"))
+        p.append(("Volltext findet Ungetaggtes",
+                  "Volltext  Journal/" in zettel.suche(["Schotter"]), True,
+                  "dritte Stufe, Zusatz gegenueber Ferradea"))
+        p.append(("unbekannter Begriff liefert keinen Treffer",
+                  zettel.suche(["gibtsnichtxyz"]).startswith("Kein Treffer"), True,
+                  "ehrliche Meldung statt Beliebigem"))
+        gelesen = zettel.lies("Forsteinrichtung")
+        p.append(("Lesen liefert Dossier und Journal-Tag",
+                  "## Stand" in gelesen and "42 Festmeter" in gelesen, True,
+                  "Trefferseiten im Ganzen"))
+        p.append(("Lesen verlaesst die Wurzel nicht",
+                  zettel.lies("../../etc/passwd").startswith("Nichts gefunden"), True,
+                  "ein Seitenname darf nicht aus dem Zettelkasten fuehren"))
+        p.append(("Erkenntnis steht im Index",
+                  "Ein Fakt, eine Datei." in zettel.erkenntnis_text(), True,
+                  "Spitze der Pyramide"))
+        p.append(("Karte nennt Dossier und Stand",
+                  "- Forsteinrichtung: Hiebsatz steht." in zettel.karte_saetze(), True,
+                  "die Karte ist der stille Wegweiser"))
+        Path(tmp, "Dossiers", "verwaist.md").write_text("# Verwaist\n", encoding="utf-8")
+        w = zettel.waisen(zettel._seiten())
+        p.append(("Hausmeister findet die Waise", "Dossiers/verwaist" in w, True,
+                  "unverlinkt ist unerreichbar"))
+        p.append(("verlinktes Dossier ist keine Waise", "Dossiers/forsteinrichtung" in w,
+                  False, "sonst verschwindet Lebendes im Archiv"))
+        p.append(("Journal ist nie archivierbar",
+                  zettel._archivierbar("Journal/2026/2026-09-15"), False,
+                  "der Strom ist heilig"))
+        meldungen = []
+        for i in range(3):
+            _, meldungen = zettel.ablegen({"quelle": "probe", "eintraege": [
+                {"titel": "Runde %d" % i, "thema": "Kreisel", "text": "wieder dasselbe",
+                 "schlagworte": ["kreisel"]}]})
+        p.append(("Kreis-Pruefung meldet sich nach drei Ablagen",
+                  any("Kreis-Prüfung" in m for m in meldungen), True,
+                  "Reflexion ohne Handlung ist Rumination"))
+        leer, _ = zettel.ablegen({"eintraege": [{"thema": "x", "text": ""}]})
+        p.append(("leere Ablage schreibt nichts", leer == 0, True,
+                  "nichts Ablegbares heisst nichts geschrieben"))
+    finally:
+        zettel.setzen_wurzel(alt_zk)
+        zettel.setzen_state(alt_state)
+        shutil.rmtree(tmp, ignore_errors=True)
+    return p
+
+
+def _installer_laden():
+    paket = os.path.dirname(os.path.dirname(HIER))
+    if not (os.path.isfile(os.path.join(paket, "installieren.py"))
+            and os.path.isdir(os.path.join(paket, "skills"))):
+        return None, None
+    if paket not in sys.path:
+        sys.path.insert(0, paket)
+    try:
+        import installieren
+        return installieren, paket
+    except Exception:                                             # noqa: BLE001
+        return None, None
+
+
+def _aktualisierungsproben():
+    p = []
+    akt = _modul("aktualisierung")
+    if akt is not None:
+        p.append(("Versionsvergleich: 2.0.10 ist neuer als 2.0.9",
+                  akt.neuer(akt.version_tupel("2.0.10"), akt.version_tupel("2.0.9")), True,
+                  "ein Zeichenkettenvergleich hielte 2.0.10 fuer aelter"))
+        p.append(("ungueltige Version wird abgewiesen", akt.version_tupel("v2.0") is None,
+                  True, "sonst wird ein Phantom-Tag geladen"))
+        p.append(("Archivpfad mit .. wird abgewiesen",
+                  akt.pfad_sicher("paket/../../x.py"), False,
+                  "Zip-Slip schreibt ausserhalb des Zielordners"))
+        p.append(("Archivpfad mit Laufwerk wird abgewiesen",
+                  akt.pfad_sicher("C:/Windows/x.py"), False, "absolut ist nie erlaubt"))
+        p.append(("gewoehnlicher Archivpfad wird angenommen",
+                  akt.pfad_sicher("infinite-accuracy-2.0.0/infinite-accuracy/hooks/ernte.py"),
+                  True, "Regelfall"))
+
+    inst, paket = _installer_laden()
+    if inst is None:
+        p.append(("Installer-Proben (uebersprungen: kein vollstaendiges Paket)", True, True,
+                  "in einer Projektinstallation liegt nur ein Teil des Pakets"))
+        return p
+
+    fehler = inst.manifest_pruefen(paket)
+    p.append(("Pruefsummen des Pakets stimmen", not fehler, True,
+              "vor jedem Release: installieren.py --manifest (%s)" % "; ".join(fehler[:3])))
+    tmp = tempfile.mkdtemp(prefix="ia-installation-")
+    try:
+        kopie = os.path.join(tmp, "paket")
+        shutil.copytree(paket, kopie, ignore=shutil.ignore_patterns("__pycache__", "*.pyc"))
+        projekt = os.path.join(tmp, "projekt")
+        os.makedirs(os.path.join(projekt, ".claude"))
+
+        def still(*_a, **_k):
+            return None
+
+        rc = inst.ausfuehren(kopie, projekt, "erstinstallation", ohne_abnahme=True, ausgabe=still)
+        p.append(("Erstinstallation laeuft durch", rc == 0, True, "Regelfall"))
+        p.append(("Hook liegt am Zielort",
+                  os.path.isfile(os.path.join(projekt, ".claude", "hooks", "ernte.py")), True,
+                  "hooks/ gehoert nach .claude/hooks/"))
+        p.append(("Zettel-Skill liegt am Zielort",
+                  os.path.isfile(os.path.join(projekt, ".claude", "skills", "zettel", "zettel.py")),
+                  True, "skills/ gehoert nach .claude/skills/"))
+        p.append(("hooks.json wird nicht installiert",
+                  os.path.exists(os.path.join(projekt, ".claude", "hooks", "hooks.json")), False,
+                  "ein Projekt verdrahtet ueber settings.json"))
+        stand = inst.installiert_lesen(projekt) or {}
+        p.append(("installiert.json nennt die Version",
+                  stand.get("version") == inst.version_lesen(kopie), True,
+                  "daran misst die Update-Pruefung"))
+        rc = inst.ausfuehren(kopie, projekt, "update", ohne_abnahme=True, ausgabe=still)
+        p.append(("Update ohne Aenderung tut nichts", rc == 0, True,
+                  "zweimal installieren ist kein Fehler"))
+
+        ziel = os.path.join(projekt, ".claude", "hooks", "ernte.py")
+        with open(ziel, "a", encoding="utf-8") as f:
+            f.write("\n# lokal geaendert\n")
+        with open(os.path.join(kopie, "hooks", "ernte.py"), "a", encoding="utf-8") as f:
+            f.write("\n# neue Fassung\n")
+        inst.manifest_schreiben(kopie)
+        rc = inst.ausfuehren(kopie, projekt, "update", ohne_abnahme=True, ausgabe=still)
+        p.append(("lokal geaenderte Datei stoppt das Update", rc == 1, True,
+                  "ein Update darf eigene Aenderungen nicht still ueberschreiben"))
+        with open(ziel, "r", encoding="utf-8") as f:
+            p.append(("lokale Aenderung bleibt nach dem Abbruch",
+                      "# lokal geaendert" in f.read(), True, "abgebrochen heisst unberuehrt"))
+        with open(os.path.join(kopie, "hooks", "regelschub.py"), "a", encoding="utf-8") as f:
+            f.write("\n# manipuliert\n")
+        p.append(("manipulierte Paketdatei faellt auf", bool(inst.manifest_pruefen(kopie)),
+                  True, "Pruefsummen schuetzen vor halben Downloads"))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+    return p
 
 
 def proben():
-    """Liste von (name, ist_wahr, erwartet, warum). Keine Nebenwirkungen."""
+    """Liste von (name, ist_wahr, erwartet, warum). Nebenwirkungen nur in Temp-Ordnern."""
     s = _scratch()
     p = []
 
@@ -201,6 +554,9 @@ def proben():
 
     p.extend(_konfigproben())
     p.extend(_hookproben())
+    p.extend(_verdichtungsproben())
+    p.extend(_zettelproben())
+    p.extend(_aktualisierungsproben())
 
     for befehl in ["rm -f /tmp/x", "mv a b", "cp a b", "touch x", "mkdir x",
                    "rmdir x", "unlink x", "ln -s a b", "chmod 644 x",
@@ -238,6 +594,10 @@ def proben():
 
 
 def main():
+    try:
+        sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+    except Exception:                                             # noqa: BLE001
+        pass
     rot = "--rot" in sys.argv
     ergebnisse = proben()
     bestanden, durchgefallen = 0, []

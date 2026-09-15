@@ -1,0 +1,169 @@
+{
+  "version": "2.0.0",
+  "dateien": {
+    "installieren.py": {
+      "sha256": "6071e37cd3ec9711d9e90638dcb9ec8e2cbfc74ed412528771e463a6e4262b80",
+      "bytes": 19544
+    },
+    "version.json": {
+      "sha256": "81729a3421079f4bca3a1cef8fcc377b6809915d6338a8ec988b84e4f475d5e0",
+      "bytes": 765
+    },
+    ".claude-plugin/plugin.json": {
+      "sha256": "d6e909811c1346b507500157599d91d202376f8d7467047cdfbfff3cae52e79e",
+      "bytes": 260
+    },
+    "agents/ia-ausfuehrer.md": {
+      "sha256": "d74d7ff8a17be8c59ab2ba50f8969310914f24496f3a61d8e878a1cfa8828c84",
+      "bytes": 3725
+    },
+    "agents/ia-leser.md": {
+      "sha256": "b20f4e491442b33c6a77f4e57c980f5ac9cafde851e0a1c1864c0c4217fb8cc2",
+      "bytes": 1627
+    },
+    "agents/ia-pruefer.md": {
+      "sha256": "feafd8a322c8dfd0cc564c66de679284c447562ad36bbe58a1860018d7fc72e5",
+      "bytes": 1719
+    },
+    "hooks/aktualisierung.py": {
+      "sha256": "6626f20d566edffd7d7ceb2d007bf256fd68a2b54d8449f186821f0860926db5",
+      "bytes": 10750
+    },
+    "hooks/ernte.py": {
+      "sha256": "d57fefdcd330dd90933b51af49b8d2a3f622167324596f96d567d322d35dbb32",
+      "bytes": 27159
+    },
+    "hooks/gedaechtnis.py": {
+      "sha256": "ef64f72d34139e344ddcbc73c85b7bc8a48f996235b5afa3a227141cca74f861",
+      "bytes": 14460
+    },
+    "hooks/haertung.py": {
+      "sha256": "ad126e106342d4835ca319134d188226c7c3be819fa373a3d673f499bd40865c",
+      "bytes": 7347
+    },
+    "hooks/hooks.json": {
+      "sha256": "29768c89a4abb190dc7aa6d6afdfd1c6ca84d58f8459db48ead53de31b9adef2",
+      "bytes": 1268
+    },
+    "hooks/nachlauf.py": {
+      "sha256": "91fa3db9a7cf7d71148878306ef0c1847a77f788248ecc9e3b68b463eb357d38",
+      "bytes": 1545
+    },
+    "hooks/regelschub.py": {
+      "sha256": "72f2e634cc2a650d217eb034980bbd4222a7b6dc45ad0f3371434e363888f37b",
+      "bytes": 8372
+    },
+    "hooks/wiedervorlage.py": {
+      "sha256": "d2f030c111db481878ead809f2d58e1905cb191fdc4d8f6c18dc45a42ff59398",
+      "bytes": 10252
+    },
+    "skills/einrichten/SKILL.md": {
+      "sha256": "67b1641b195c424231a8fa387cc8dccbbec142d4d42651d6eedea4ebf9ad2473",
+      "bytes": 3035
+    },
+    "skills/kaskade/SKILL.md": {
+      "sha256": "5b73261a4d2ee75a94a4b39c5a03e266d8f58eaebf96314188e50f775a9422c5",
+      "bytes": 6968
+    },
+    "skills/kaskade/abnahme.py": {
+      "sha256": "d1984c85f61b3e01562ea4b44b1c5b1451f990d257de055634693ff347f4778b",
+      "bytes": 6807
+    },
+    "skills/kaskade/journal.py": {
+      "sha256": "e35c5ccd89a612c554b9201118f2d3f87bc4230c90e325d0b6318f14663b772b",
+      "bytes": 8994
+    },
+    "skills/kaskade/konfig.py": {
+      "sha256": "10bbc1e87e097d5b50f84a3add97c81653f5b9ebf0231cc8405ed63739571c54",
+      "bytes": 9143
+    },
+    "skills/kaskade/pruefstand.py": {
+      "sha256": "15d22bac338c13325b0b27d7e89999422757a90978ae99759d4522fd6804ecd1",
+      "bytes": 31370
+    },
+    "skills/kaskade/doku/README.md": {
+      "sha256": "70bd5b1bbc839b81b02088ff23c81b8e5638c9e03d29c2eb6e25273e87a28fe3",
+      "bytes": 2621
+    },
+    "skills/kaskade/doku/abnahme.md": {
+      "sha256": "2edb090572ba1a4b91f44854fba078cf8dd97dc6b56fda27f8326c155e35ac90",
+      "bytes": 6113
+    },
+    "skills/kaskade/doku/aktualisierung.md": {
+      "sha256": "a798d8f2ecd4c0a4a2c648100dce9c19342ad3938e03d2890e137fb2fe2f23b9",
+      "bytes": 3647
+    },
+    "skills/kaskade/doku/ernte.md": {
+      "sha256": "79d18b4e48a7e43669e56632204d0bd9069c8eb5863370e2b45bf583a95b6ac1",
+      "bytes": 4972
+    },
+    "skills/kaskade/doku/gedaechtnis.md": {
+      "sha256": "eb52f92acca358145cff72900c0372047084fa341a22f1923bfd410d35145a91",
+      "bytes": 3271
+    },
+    "skills/kaskade/doku/hintergrund.md": {
+      "sha256": "8c0feb956d27009cc25908778d75574b918126776ed6244b9dd3e6e09484ad0b",
+      "bytes": 5664
+    },
+    "skills/kaskade/doku/journal.md": {
+      "sha256": "f6ac5bbe1afd10cfab62e7fa5c7a56909676e88bbd1f69c5f317bd3f92cfbf14",
+      "bytes": 7812
+    },
+    "skills/kaskade/doku/konfig.md": {
+      "sha256": "a699eccf49a0f6212c2438bfde1f93c252a45a92c22634be24fad3671501b32e",
+      "bytes": 1461
+    },
+    "skills/kaskade/doku/pruefstand.md": {
+      "sha256": "927a78d7a9e27a00aad471e4d93a53f9fd1aa92d967398d9842d89f4daeea315",
+      "bytes": 3644
+    },
+    "skills/kaskade/doku/regelschub.md": {
+      "sha256": "b5359853cce5bb427ed76e068c27670a8f9c110ee752f67e41babfc88309db50",
+      "bytes": 3943
+    },
+    "skills/kaskade/doku/verdichtung.md": {
+      "sha256": "44d87ab8335ad6e513ecc34a83c4f112b3ebf99bed9033a195b81b505d207972",
+      "bytes": 5221
+    },
+    "skills/kaskade/doku/wiedervorlage.md": {
+      "sha256": "d9546ceffa531255c145badf9207310cae4612f53c65517f7efca1bd6844c6ed",
+      "bytes": 3027
+    },
+    "skills/kaskade/doku/zettel.md": {
+      "sha256": "75d304e9bd028d874182ed2e3b9634c9ae156d0372cde726570c8423bb34616f",
+      "bytes": 3255
+    },
+    "skills/zettel/SKILL.md": {
+      "sha256": "a2756357dfe471aa03ec4f1ab57b88525073e78c7e792194277c047218d8ddb6",
+      "bytes": 4274
+    },
+    "skills/zettel/zettel.py": {
+      "sha256": "3a1662794391d8f238314f80c789300be87af3eab08aa6f4cdeee2f5f0769eed",
+      "bytes": 48899
+    },
+    "vorlagen/einstellungen.beispiel.json": {
+      "sha256": "7feee37393d0b31b77c691549630a0fc0095ef8889e3e9c92c97c74f26ff4ac8",
+      "bytes": 123
+    },
+    "vorlagen/installation.beispiel.json": {
+      "sha256": "8492c30869b3bd7cb10d090d775b4bff19327384db8083ca32a98e37a4fd2010",
+      "bytes": 49
+    },
+    "vorlagen/konfig.beispiel.json": {
+      "sha256": "700bd2794e86985a2caee61a49b752a9fdd22987ce13f1efda2c3cb4573cd168",
+      "bytes": 382
+    },
+    "vorlagen/regeln.beispiel.md": {
+      "sha256": "6acb2b68b6da2c233310f1b0f7c0f839de051f310fcb42b70753354b62d02b53",
+      "bytes": 792
+    },
+    "vorlagen/register-texte.beispiel.json": {
+      "sha256": "b890f93ab3ba8512447e823c8748acfd020c47b8a9af8d9c090c441f9582b39c",
+      "bytes": 219
+    },
+    "vorlagen/ziele.beispiel.json": {
+      "sha256": "dc96cedac7208700c900b1a5d8e9db702e22e6038bc46649a4ec9287bd445c94",
+      "bytes": 135
+    }
+  }
+}

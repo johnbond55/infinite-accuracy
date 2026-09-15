@@ -1,50 +1,63 @@
 # wiedervorlage.py — warum es so gebaut ist
 
-Legt beim Sitzungsstart den letzten Stand wieder vor.
+Legt beim Sitzungsstart und nach jeder Verdichtung den Stand vor.
 
 ---
 
-## Die Reihenfolge ist die Botschaft
+## Zwei Wege je nach Quelle
 
-1. **Ältere Transkripte härten** — bevor irgendetwas vorgelegt wird.
-2. **Destillat** — das gedeutete, kurze.
-3. **Rohprotokoll** — nur soweit Budget bleibt.
-4. **Hausmeister-Meldungen** — Gedächtnis, liegengebliebene Sicherungen.
+| Quelle | Vorgelegt |
+|---|---|
+| `resume` | nichts — der Verlauf ist da |
+| `compact` | Kennmarken-Prüfung, Regeln, Destillat **dieser** Sitzung, Karte des Zettelkastens, Hinweis zum Weiterarbeiten |
+| `startup`, `clear` | jüngstes Destillat, jüngstes Rohprotokoll (soweit Budget), Karte, Hausmeister-Meldungen, Update-Hinweis |
 
-Das Destillat kommt zuerst, weil es die Deutung enthält. Das Rohprotokoll ist
-der Rückfall, wenn keines geschrieben wurde — und bekommt dann mehr Platz
-(`wiedervorlage_roh_allein` statt `wiedervorlage_roh`).
+Nach einer Verdichtung zählt das Destillat der eigenen Sitzung, nicht das
+jüngste im Ordner: Arbeiten zwei Sitzungen parallel, gehörte das jüngste sonst
+womöglich der anderen. Den Pfad hat `regelschub.py` beim Ablage-Auftrag im Stand
+der Sitzung vermerkt.
 
-## Warum das Härten hierher gehört
-
-Diese Dateien liegen garantiert niemandem unter den Händen — anders als das
-laufende Transkript. Für einen Endloschat, der nie ein SessionEnd sieht, ist
-das überhaupt der einzige Weg.
+Die Regeln kommen nach einer Verdichtung hier mit, weil eine automatische
+Verdichtung mitten in einem Arbeitsgang läuft — bis zum nächsten Prompt schöbe
+sie sonst niemand nach.
 
 ---
 
-## Bei `resume` passiert nichts
+## Härten und Nachernte laufen abgekoppelt
 
-Dort ist der Verlauf ohnehin da. Alles vorzulegen wäre Doppelung und kostete
-nur Kontext.
+Bis 1.x härtete der Hook beim Start alle älteren Transkripte selbst. Bei 74
+Transkripten (425 MB) brach Claude Code ihn nach 20 Sekunden ab — und dann fehlte
+auch die Wiedervorlage. Jetzt startet der Hook `haertung.py` als eigenen Prozess
+mit eigenen Standard-Handles und kehrt sofort zurück. `haertung.py` arbeitet
+inkrementell (nur veränderte Dateien), mit einer Sperre gegen Doppelstart.
+
+Die **Nachernte** gehört dazu: Manche Oberflächen melden nie ein Sitzungsende.
+Transkripte, die länger als `nachernte_ruhe_sekunden` ruhen und seit der letzten
+Ernte gewachsen sind, bekommen ein Rohprotokoll mit dem Zeitstempel ihrer
+letzten Aktivität.
 
 ---
 
 ## Budgets statt Vollständigkeit
 
-`wiedervorlage_gesamt` deckelt die Summe. Wer alles vorlegt, hat den Kontext
-schon am Sitzungsstart gefüllt — genau das, was dieses Paket verhindern soll.
+`wiedervorlage_gesamt` deckelt Destillat und Rohprotokoll zusammen. Wer alles
+vorlegt, hat den Kontext schon am Sitzungsstart gefüllt.
 
 Gekürzt wird am Ende, nie am Anfang: Das Rohprotokoll stellt den Schlussstand
 bewusst nach vorn, damit er das Kürzen überlebt.
-
----
 
 ## Der Altershinweis
 
 Ist der vorgelegte Stand älter als `veraltet_nach_tagen`, wird er als
 möglicherweise überholt markiert. **Ein alter Stand ist ein Hinweis, kein
-Zustand** — was er behauptet, muss vor der Planung nachgeprüft werden.
+Zustand.**
+
+## Der Update-Hinweis
+
+Steht am Ende, weil er nichts mit der laufenden Arbeit zu tun hat. Er kostet
+höchstens `aktualisierung_zeitlimit_sekunden` und nur alle
+`aktualisierung_intervall_stunden` eine Netzanfrage. Einzelheiten:
+[aktualisierung.md](aktualisierung.md).
 
 ---
 
@@ -52,8 +65,10 @@ Zustand** — was er behauptet, muss vor der Planung nachgeprüft werden.
 
 | Änderung | Folge |
 |---|---|
-| Härten nach dem Vorlegen | Geheimnisse aus alten Transkripten stehen im neuen Kontext |
+| wieder synchron härten | Timeout beim Start, keine Wiedervorlage |
 | `resume`-Kurzschluss entfernen | der Verlauf wird gedoppelt |
+| nach Verdichtung das jüngste statt des eigenen Destillats | parallele Sitzungen tauschen ihre Stände |
+| Regeln im `compact`-Zweig weglassen | bis zum nächsten Prompt fehlen die Leitplanken |
 | Budgets entfernen | der Kontext ist am Sitzungsstart schon voll |
-| Von vorn kürzen | der Schlussstand fällt weg, also genau die Zusammenfassung |
-| Altershinweis entfernen | ein Monate alter Stand liest sich wie der aktuelle |
+| von vorn kürzen | der Schlussstand fällt weg, also genau die Zusammenfassung |
+| Update-Prüfung ohne Zeitlimit | ein hängendes Netz blockiert den Start |

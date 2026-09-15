@@ -1,28 +1,33 @@
 # infinite-accuracy
 
-Ein Claude-Code-Plugin für lange Sitzungen. Es hält den Kontext klein, legt beim
-Neustart den letzten Stand wieder vor, lagert Arbeitsgänge an kleinere Modelle
-aus und prüft jedes Ergebnis maschinell nach.
+Ein Claude-Code-Paket für lange, im Grunde endlose Arbeitssitzungen. Es steuert
+die Verdichtung des Kontexts, legt Wissen in einem Zettelkasten ab, lagert
+Arbeitsgänge an kleinere Modelle aus und prüft jedes Ergebnis maschinell nach.
 
 ## Was es macht
 
-**Der Kontext bleibt klein.** Bei jedem Prompt wird mitgezählt, wie viel Kontext
-die Sitzung wirklich kostet. Ist die Schwelle erreicht, fordert das Plugin ein
-kurzes Destillat an und schlägt `/compact` vor — der Gesprächsfaden bleibt, nur
-der Ballast geht.
+**Der Faden reißt nicht ab.** Ab einer Kontextschwelle fordert das Paket am
+Userhalt eine Ablage an: Einträge im Zettelkasten und ein kurzes Destillat. Die
+Verdichtung von Claude Code läuft danach von selbst — ein Hook gibt ihr vor, was
+erhalten bleibt, schiebt sie auf, solange nichts abgelegt ist, und prüft
+hinterher an einer Kennmarke, ob die Anweisung übernommen wurde.
 
-**Nichts geht verloren.** Bei jedem Sitzungsende und vor jeder Komprimierung
-entsteht ein Rohprotokoll: Titel, was verlangt wurde, angefasste Dateien,
-ausgeführte Kommandos, letzte Antwort. Rein mechanisch, ohne Modellaufruf. Beim
-nächsten Start wird der jüngste Stand wieder vorgelegt.
+**Früheres wird nachgeschlagen, nicht geraten.** Der Zettelkasten — Journal,
+Dossiers mit Besuchs-Log, Erkenntnis-Index, Schlagwort-Register — liegt als
+Markdown im Projekt. Gesucht wird über Dossiername, Schlagwort und Volltext;
+Trefferseiten werden im Ganzen gelesen.
+
+**Nichts geht verloren.** Bei jedem Sitzungsende und vor jeder Verdichtung
+entsteht ein Rohprotokoll, rein mechanisch. Sitzungen ohne gemeldetes Ende
+werden im Hintergrund nachgeerntet.
 
 **Geheimnisse werden aus dem Transkript getilgt.** API-Schlüssel, Tokens,
 private Schlüssel und Passwortfelder werden durch `<Secret getilgt: art>`
-ersetzt. Die letzten rund 30.000 Tokens bleiben unberührt — das ist der lebende
+ersetzt. Die letzten rund 30.000 Token bleiben unberührt — das ist der lebende
 Chat.
 
 **Regeln verblassen nicht.** Deine Arbeitsregeln stehen in einer Datei und
-werden bei jedem Prompt neu eingespeist, statt am Sitzungsanfang zu verpuffen.
+werden bei jedem Prompt neu eingespeist.
 
 **Delegieren mit Abnahme.** Das planende Modell schneidet einen Arbeitsgang zu
 und gibt ihn an ein kleineres. Ein Skript führt vorher festgelegte Prüfbefehle
@@ -33,15 +38,43 @@ durch, macht das planende Modell den Arbeitsgang selbst.
 Anlegen eingetragen und später aus dieser Liste gelöscht — kein Suchmuster,
 eine Datei je Befehl.
 
+**Updates kommen mit Rückfrage.** Eine Projektinstallation sieht beim
+Sitzungsstart nach, ob auf GitHub eine neuere Fassung liegt, und fragt. Installiert
+wird mit Prüfsummen, Sicherung und Rückbau.
+
 ## Installation
 
+### Als Plugin
+
 ```
-/plugin marketplace add <konto>/infinite-accuracy
+/plugin marketplace add johnbond55/infinite-accuracy
 /plugin install infinite-accuracy@infinite-accuracy
 ```
 
-Danach sind verfügbar: der Skill `/infinite-accuracy:kaskade`, die Agenten
-`ia-ausfuehrer` und `ia-pruefer` und vier Hooks.
+### Im Projekt — reist mit dem Projektordner
+
+Archiv oder Klon holen, dann:
+
+```
+python infinite-accuracy/installieren.py --projekt <projektordner> --erstinstallation --einstellungen
+```
+
+Hooks landen in `.claude/hooks/`, Skills in `.claude/skills/`, Agenten in
+`.claude/agents/`. `--einstellungen` ergänzt die Hook-Einträge in
+`.claude/settings.json`. Spätere Updates meldet der Sitzungsstart.
+
+## Verdichtung einstellen
+
+In `.claude/settings.json` des Projekts (Vorlage `vorlagen/einstellungen.beispiel.json`):
+
+| Schlüssel | Wert |
+|---|---|
+| `autoCompactEnabled` | `true` |
+| `autoCompactWindow` | `250000` |
+| `env.DISABLE_AUTO_COMPACT` | nicht setzen, auch nicht in `~/.claude/settings.json` |
+
+Das Modell der Sitzung — Fable oder Opus — mit `[1m]` wählen; sonst kappt das
+200.000-Fenster den Wert. Warum diese Zahlen: `skills/kaskade/doku/verdichtung.md`.
 
 ## Einrichtung
 
@@ -51,44 +84,45 @@ Ohne Konfiguration läuft alles lokal und mit eingebauten Vorgaben. Zum Anpassen
 /infinite-accuracy:einrichten
 ```
 
-Claude fragt nach den Zielsystemen und legt die Konfiguration an. Von Hand geht
-es auch — die Dateien liegen in `<projekt>/.claude/infinite-accuracy/`:
+Von Hand: die Dateien liegen in `<projekt>/.claude/infinite-accuracy/`.
 
 | Datei | Wofür | Vorlage |
 |---|---|---|
 | `regeln.md` | wird bei jedem Prompt eingespeist | `vorlagen/regeln.beispiel.md` |
 | `ziele.json` | Rechner für entfernte Arbeitsgänge | `vorlagen/ziele.beispiel.json` |
-| `konfig.json` | Schwellen, Budgets, Fristen | `vorlagen/konfig.beispiel.json` |
-| `destillat.md` | Wortlaut des Schnittauftrags | — |
+| `konfig.json` | Schwellen, Budgets, Schalter, Ablageorte | `vorlagen/konfig.beispiel.json` |
+| `destillat.md` | eigener Wortlaut des Ablage-Auftrags | — |
 | `register-texte.json` | Überschriften des Gedächtnisindex | `vorlagen/register-texte.beispiel.json` |
+| `installation.json` | Teile, die nicht installiert werden | `vorlagen/installation.beispiel.json` |
 
-Prüfen, was erkannt wurde:
+Prüfen, was erkannt wurde: `python infinite-accuracy/skills/kaskade/konfig.py`
 
-```
-python infinite-accuracy/skills/kaskade/konfig.py
-```
+## Was das Paket auf deinem Rechner ändert
 
-## Was das Plugin auf deinem Rechner ändert
-
-- Es legt `<projekt>/.claude/infinite-accuracy/` an — dort liegen deine
-  Konfiguration, die Sitzungsprotokolle und das Aufräum-Journal.
-- **Es schreibt in die Transkriptdatei der Sitzung**, um Geheimnisse zu tilgen.
-  Das geschieht in dieselbe Datei (nicht durch Tausch), mit vier Sicherungen:
-  Gegenprobe auf gültiges JSON je Zeile, gleichbleibende Zeilenzahl, Kopie vor
-  dem Schreiben, Rollback bei Fehler. Abschaltbar über `konfig.json`.
+- Es legt `<projekt>/.claude/infinite-accuracy/` und `<projekt>/.claude/zettelkasten/`
+  an — Konfiguration, Sitzungsprotokolle, Standdateien, Zettelkasten.
+- **Es schreibt in die Transkriptdatei der Sitzung**, um Geheimnisse zu tilgen —
+  in dieselbe Datei, mit Gegenprobe je Zeile, gleichbleibender Zeilenzahl,
+  Kopie vor dem Schreiben und Rollback bei Fehler.
 - Es registriert Hooks an SessionStart, UserPromptSubmit, PreCompact und
-  SessionEnd.
+  SessionEnd. Der PreCompact-Hook kann eine automatische Verdichtung aufschieben
+  (Exit 2) und gibt ihr eine Anweisung mit. Diese Wirkung ist in Claude Code
+  beobachtet, nicht dokumentiert — die Kennmarke meldet, wenn sie ausbleibt.
 - Es führt **Prüfbefehle wirklich aus** — lokal in einer Shell, auf
   konfigurierten Zielsystemen über SSH. Verändernde Befehle werden abgewiesen;
   diese Prüfung ist eine Heuristik und kein Beweis.
+- Eine Projektinstallation fragt höchstens alle 12 Stunden
+  `raw.githubusercontent.com` nach `version.json` (abschaltbar mit
+  `"aktualisierung": "aus"` in `konfig.json`) und lädt ein Archiv nur nach deiner
+  Zustimmung.
 
-Es sendet nichts nach außen, liest keine Zugangsdaten und verändert keine
+Sonst sendet es nichts nach außen, liest keine Zugangsdaten und verändert keine
 Dateien außerhalb der genannten Orte.
 
 ## Selbstprüfung
 
 ```
-python infinite-accuracy/skills/kaskade/pruefstand.py         # 103 bestanden, 0 durchgefallen
+python infinite-accuracy/skills/kaskade/pruefstand.py         # STATUS: GRUEN
 python infinite-accuracy/skills/kaskade/pruefstand.py --rot   # muss fehlschlagen
 ```
 
@@ -98,23 +132,29 @@ Der zweite Lauf kehrt jede Erwartung um. Er weist nach, dass der erste
 ## Inhalt
 
 ```
+installieren.py       installiert und ersetzt das Paket in einem Projekt
+version.json          Version und Änderungen — daran misst die Update-Prüfung
+PRUEFSUMMEN.json      Prüfsummen aller Paketdateien
 skills/kaskade/       SKILL.md, abnahme.py, journal.py, konfig.py, pruefstand.py
-skills/kaskade/doku/  warum jeder Baustein so gebaut ist — für Weiterentwicklung
+skills/kaskade/doku/  warum jeder Baustein so gebaut ist
+skills/zettel/        Zettelkasten: SKILL.md, zettel.py
 skills/einrichten/    Einrichtungsdialog
-agents/               ia-ausfuehrer (führt aus), ia-pruefer (nimmt ab)
-hooks/                ernte, regelschub, wiedervorlage, gedaechtnis, nachlauf
+agents/               ia-ausfuehrer (führt aus), ia-leser (liest), ia-pruefer (nimmt ab)
+hooks/                regelschub, ernte, wiedervorlage, haertung, nachlauf, gedaechtnis, aktualisierung
 vorlagen/             Beispielkonfigurationen
 ```
 
 | Hook | Ereignis | Aufgabe |
 |---|---|---|
-| `wiedervorlage.py` | SessionStart | letzten Stand vorlegen, alte Transkripte härten |
-| `regelschub.py` | UserPromptSubmit | Regeln einspeisen, Kontextlast messen, Schnitt anfordern |
-| `ernte.py` | PreCompact, SessionEnd | Rohprotokoll erzeugen, Transkript härten |
+| `regelschub.py` | UserPromptSubmit | Regeln einspeisen, Kontextlast messen, Ablage anfordern |
+| `ernte.py` | PreCompact, SessionEnd | Riegel, Anweisung mit Kennmarke, Rohprotokoll, Tilgung |
+| `wiedervorlage.py` | SessionStart | Stand vorlegen — beim Start und nach jeder Verdichtung |
+| `haertung.py` | — (von wiedervorlage gestartet) | ältere Transkripte härten, nachernten, Zettel-Waisen zählen |
 | `nachlauf.py` | SessionEnd | verwaiste Arbeitsdateien löschen |
 | `gedaechtnis.py` | — (CLI) | Kurzindex bauen, Auffälligkeiten melden |
+| `aktualisierung.py` | — (von wiedervorlage) | nach Updates fragen, Installation anstoßen |
 
-Sprache: Deutsch, durchgängig. Python 3, nur Standardbibliothek.
+Sprache: Deutsch, durchgängig. Python 3.8 oder neuer, nur Standardbibliothek.
 
 ## Lizenz
 

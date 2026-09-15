@@ -1,7 +1,14 @@
 {
-  "schwelle_zeichen": 500000,
+  "ablage_schwelle_token": 180000,
+  "riegel_bis_token": 300000,
   "regeln_max_zeichen": 8000,
   "schonfrist_zeichen": 120000,
   "veraltet_nach_tagen": 3,
-  "wiedervorlage_gesamt": 60000
+  "wiedervorlage_gesamt": 60000,
+  "aktualisierung": "an",
+  "pfade": {
+    "sitzungen": ".claude/infinite-accuracy/sitzungen",
+    "state": ".claude/infinite-accuracy/state",
+    "zettelkasten": ".claude/zettelkasten"
+  }
 }

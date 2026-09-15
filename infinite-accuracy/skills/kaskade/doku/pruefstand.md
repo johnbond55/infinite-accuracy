@@ -36,22 +36,33 @@ weist nach, dass die Proben überhaupt entscheiden.
 Erwartete Ausgabe:
 
 ```
-$ python pruefstand.py           ->  62 bestanden, 0 durchgefallen   Exit 0
-$ python pruefstand.py --rot     ->  0 bestanden, 62 durchgefallen   Exit 1
+$ python pruefstand.py           ->  <n> bestanden, 0 durchgefallen   STATUS: GRUEN, Exit 0
+$ python pruefstand.py --rot     ->  0 bestanden, <n> durchgefallen   STATUS: ESKALATION, Exit 1
 ```
 
 ---
 
-## Keine Nebenwirkungen
+## Nebenwirkungen nur in eigenen Temp-Ordnern
 
-`proben()` ruft ausschließlich `pfad_erlaubt()` und `ist_veraendernd()` auf —
-beides reine Funktionen. Es wird nichts eingetragen, nichts gelöscht, keine
-Verbindung aufgebaut.
+Die Schranken-Proben rufen reine Funktionen auf. Verdichtung, Zettelkasten und
+Installer werden Ende-zu-Ende geprobt — aber ausschließlich in Ordnern aus
+`tempfile.mkdtemp()`, die am Ende gelöscht werden. Der Hook-Prozess für
+PreCompact bekommt über `IA_KONFIG` eine Probenkonfiguration, deren Ablageorte
+im Temp-Ordner liegen. Es wird nichts ins echte Journal eingetragen, keine
+Verbindung aufgebaut, kein echter Stand gelesen oder angelegt.
 
 **Das muss so bleiben.** Ein Prüfstand, der ins echte Journal schreibt,
-verändert den Zustand, den er prüfen soll; einer, der `ssh` aufruft, läuft ohne
-Netz nicht mehr. Wer eine Probe braucht, die Dateien anfasst, schreibt sie
-gegen einen eigenen Temp-Ort und räumt selbst auf.
+verändert den Zustand, den er prüfen soll; einer, der `ssh` oder das Netz
+braucht, läuft offline nicht mehr. Anlass: Eine erste Fassung von
+`ernte.stand_pfad()` legte beim bloßen Lesen den State-Ordner an — ein
+Probenlauf im Repository erzeugte dadurch `~/.claude/infinite-accuracy/state`.
+
+## Die Installer-Proben brauchen das ganze Paket
+
+Sie installieren eine Kopie des Pakets in ein Temp-Projekt und prüfen dabei
+auch die Prüfsummen. In einer Projektinstallation liegt nur ein Teil des Pakets;
+dort melden sie sich als übersprungen. Im Repository schlagen sie fehl, solange
+`installieren.py --manifest` nach einer Änderung nicht gelaufen ist — gewollt.
 
 ---
 

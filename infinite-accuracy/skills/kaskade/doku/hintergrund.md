@@ -116,3 +116,20 @@ Codepfad, der mehr als eine Datei je Befehl löschen kann.
 | Gedächtnis- und Notizarbeit | kleine Modelle schweifen ab und erfinden trotz gegenteiliger Anweisung |
 | Entscheidungen, die dem Auftraggeber gehören | er muss sie treffen, nicht nachträglich billigen |
 | offene Prüfaufträge | siehe oben |
+
+## 11.09.2026 — Messung: Lesearbeit lief auf Opus
+
+Zählung der Subagenten-Transkripte (`<sitzung>/subagents/*.jsonl`, 24 h): 42 Läufe,
+davon 140 Turns auf `claude-opus-5` (45 % der gewichteten Last der Subagenten),
+95 auf sonnet, 102 auf haiku. Die Opus-Läufe waren Read-only-Aufträge über den
+eingebauten `Explore`-Agenten — der Skill sagte „mit `model: haiku`", aber der
+Parameter wurde beim Aufruf nicht gesetzt. Ein Modell, das nur im Text steht,
+wird vergessen; eines im Frontmatter nicht. Deshalb `ia-leser` als eigener Agent
+und `CLAUDE_CODE_SUBAGENT_MODEL=sonnet` als Netz für alles ohne Frontmatter
+(Doku: Auflösung per-Aufruf → Agentdatei → Umgebungsvariable → Hauptmodell; ein
+Explore unter Fable landet sonst auf Opus).
+
+Gesamtbild derselben Messung: Subagenten waren unter 10 % der Last. 82 % aller
+Turns der Hauptsitzungen liefen mit über 200.000 Token Kontext, Ursache das
+1-M-Fenster (`[1m]`). Wie die Verdichtung seither gesteuert wird:
+[verdichtung.md](verdichtung.md).

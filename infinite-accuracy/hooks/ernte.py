@@ -1,15 +1,24 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""ernte.py — Rohprotokoll erzeugen und Geheimnisse aus dem Transkript tilgen.
+"""ernte.py — Rohprotokoll, Tilgung und die Anweisung an die Verdichtung.
 
-Laeuft bei SessionEnd und vor jeder Kontext-Komprimierung (PreCompact).
-Rein mechanisch, ohne Modellaufruf.
+Laeuft bei SessionEnd und vor jeder Verdichtung (PreCompact). Rein
+mechanisch, ohne Modellaufruf.
 
-Begruendungen und Fallen: ../skills/kaskade/doku/ernte.md
+Bei PreCompact zusaetzlich:
+  Riegel      automatische Verdichtung aufschieben (Exit 2), solange in dieser
+              Sitzung nicht abgelegt wurde und der Kontext unter
+              riegel_bis_token liegt
+  Anweisung   die Standardausgabe gibt Claude Code als Zusatzanweisung an die
+              Zusammenfassung weiter; sie traegt eine Kennmarke, die
+              wiedervorlage.py und regelschub.py danach suchen
 
-Stellt seine Tilg-Funktionen ausserdem als Bibliothek fuer die anderen Hooks
-bereit: geheimnisse_tilgen, transkript_haerten, alte_transkripte_haerten,
-haerten_und_buchen.
+Bibliothek fuer die anderen Hooks: geheimnisse_tilgen, transkript_haerten,
+alte_transkripte_haerten, haerten_und_buchen, ernten, protokoll_bauen,
+ernte_vermerken, hausmeister, kontext_token, letzte_zusammenfassung,
+kennmarke_pruefen, stand_lesen, stand_schreiben, sitzungsordner, state_ordner.
+
+Begruendungen und Fallen: ../skills/kaskade/doku/ernte.md und verdichtung.md
 """
 import json
 import os
@@ -26,12 +35,29 @@ try:
 except Exception:                                                 # noqa: BLE001
     konfig = None
 
+ENDE_BYTES = 4 * 1024 * 1024
+
 
 def _zahl(name, vorgabe):
     try:
         return konfig.zahl(name)
     except Exception:                                             # noqa: BLE001
         return vorgabe
+
+
+def _pfad(name, basis):
+    if konfig is not None:
+        try:
+            return konfig.pfad(name)
+        except Exception:                                         # noqa: BLE001
+            pass
+    if name == "zettelkasten":
+        return os.path.join(basis, ".claude", "zettelkasten")
+    return os.path.join(basis, ".claude", "infinite-accuracy", name)
+
+
+def _punkt(n):
+    return "{:,}".format(int(n)).replace(",", ".")
 
 
 STOERTAGS = re.compile(
@@ -75,9 +101,9 @@ def geheimnisse_tilgen(text):
         gezaehlt += n
 
     for muster, gruppe, art in FELDTREFFER:
-        def ersetze(m, _gruppe=gruppe, _art=art):
+        def ersetze(m, gruppe=gruppe, art=art):
             teile = list(m.groups())
-            teile[_gruppe - 1] = "<Secret getilgt: %s>" % _art
+            teile[gruppe - 1] = "<Secret getilgt: %s>" % art
             return "".join(t or "" for t in teile)
         text, n = muster.subn(ersetze, text)
         gezaehlt += n
@@ -109,7 +135,7 @@ def _tilgen_rekursiv(objekt):
 
 
 def _schonfrist_grenze(zeilen, schonfrist_zeichen):
-    """Ab welchem Index gilt die Schonfrist?"""
+    """Ab welchem Index gilt die Schonfrist? Von hinten aufsummiert."""
     if schonfrist_zeichen <= 0:
         return len(zeilen)
     summe = 0
@@ -128,10 +154,14 @@ def transkript_haerten(pfad, schonfrist_zeichen=None):
     if not os.path.isfile(pfad):
         return 0
     try:
-        with open(pfad, "r", encoding="utf-8", errors="replace") as f:
-            zeilen = f.read().splitlines()
+        with open(pfad, "r", encoding="utf-8", errors="replace", newline="") as f:
+            roh = f.read()
     except Exception:                                             # noqa: BLE001
         return 0
+    zeilen = roh.split("\n")
+    endet_mit_umbruch = bool(zeilen) and zeilen[-1] == ""
+    if endet_mit_umbruch:
+        zeilen.pop()
     if not zeilen:
         return 0
 
@@ -164,8 +194,8 @@ def transkript_haerten(pfad, schonfrist_zeichen=None):
     if len(neu_zeilen) != len(zeilen):
         return 0
 
-    inhalt = "\n".join(neu_zeilen) + "\n"
-    sicherung = pfad + ".ia-bak"
+    inhalt = "\n".join(neu_zeilen) + ("\n" if endet_mit_umbruch else "")
+    sicherung = pfad + ".ia-tilgung-bak"
     try:
         with open(pfad, "rb") as q, open(sicherung, "wb") as z:
             z.write(q.read())
@@ -193,7 +223,7 @@ def transkript_haerten(pfad, schonfrist_zeichen=None):
 
 
 def alte_transkripte_haerten(aktuelles=None, ordner=None):
-    """Beim SessionStart: alle ANDEREN Transkripte des Projekts saeubern."""
+    """Alle ANDEREN Transkripte des Projekts saeubern."""
     gesamt, dateien = 0, 0
     try:
         if not ordner:
@@ -232,12 +262,12 @@ def projekt_verzeichnis(daten):
 
 def sitzungsordner(basis):
     """Wo Rohprotokolle, Destillate und das Tilgungslog liegen."""
-    if konfig is not None:
-        try:
-            return os.path.join(konfig.konfig_ordner(), "sitzungen")
-        except Exception:                                         # noqa: BLE001
-            pass
-    return os.path.join(basis, ".claude", "infinite-accuracy", "sitzungen")
+    return _pfad("sitzungen", basis)
+
+
+def state_ordner(basis):
+    """Wo Zaehlerstaende, Sperren und Standdateien liegen."""
+    return _pfad("state", basis)
 
 
 def saeubern(text):
@@ -343,7 +373,7 @@ def eindeutig(liste):
 
 
 def haerten_und_buchen(pfad, marke, ordner):
-    """Tilgen UND ins Journal schreiben — die eine Fassung fuer alle Aufrufer."""
+    """Tilgen UND ins Tilgungslog schreiben — die eine Fassung fuer alle Aufrufer."""
     if not pfad or not os.path.isfile(pfad):
         return 0
     n = transkript_haerten(pfad)
@@ -427,25 +457,219 @@ def protokoll_bauen(f, anlass, basis):
     return "\n".join(zeile)
 
 
+def ernte_vermerken(basis, pfad):
+    """Groesse des geernteten Transkripts vermerken, damit haertung.py dieselbe
+    Sitzung nicht noch einmal nacherntet."""
+    try:
+        state = state_ordner(basis)
+        os.makedirs(state, exist_ok=True)
+        stand_pfad_ = os.path.join(state, "haertung.json")
+        stand = {}
+        try:
+            with open(stand_pfad_, "r", encoding="utf-8") as f:
+                stand = json.load(f)
+            if not isinstance(stand, dict):
+                stand = {}
+        except Exception:                                         # noqa: BLE001
+            stand = {}
+        eintrag = stand.get(os.path.basename(pfad)) or {}
+        eintrag["geerntet_size"] = os.path.getsize(pfad)
+        stand[os.path.basename(pfad)] = eintrag
+        with open(stand_pfad_, "w", encoding="utf-8") as f:
+            json.dump(stand, f)
+    except Exception:                                             # noqa: BLE001
+        pass
+
+
 def hausmeister(ordner):
-    """Rohprotokolle ausduennen: die letzten 40 bleiben, aeltere ins Archiv."""
+    """Rohprotokolle ausduennen: die juengsten bleiben, aeltere ins Archiv."""
+    behalten = _zahl("rohprotokolle_behalten", 40)
     try:
         rohe = sorted(
             (e for e in os.scandir(ordner)
              if e.is_file() and e.name.endswith("-roh.md")),
             key=lambda e: e.name,
         )
-        if len(rohe) <= 40:
+        if len(rohe) <= behalten:
             return
         archiv = os.path.join(ordner, "archiv")
         os.makedirs(archiv, exist_ok=True)
-        for e in rohe[:-40]:
+        for e in rohe[:-behalten]:
             ziel = os.path.join(archiv, e.name)
             if os.path.exists(ziel):
                 os.remove(ziel)
             os.replace(e.path, ziel)
     except Exception:                                             # noqa: BLE001
         pass
+
+
+def _ende_lesen(transkript):
+    if not transkript or not os.path.isfile(transkript):
+        return None
+    try:
+        groesse = os.path.getsize(transkript)
+        with open(transkript, "rb") as f:
+            f.seek(max(0, groesse - ENDE_BYTES))
+            return f.read()
+    except Exception:                                             # noqa: BLE001
+        return None
+
+
+def kontext_token(transkript):
+    """(token, verdichtet): Kontext der juengsten Antwort laut usage-Zeile;
+    verdichtet=True, wenn dahinter eine Verdichtungsmarke steht."""
+    daten = _ende_lesen(transkript)
+    if daten is None:
+        return None, False
+    verdichtet = False
+    for roh in reversed(daten.split(b"\n")):
+        if b"compact_boundary" not in roh and (b"assistant" not in roh or b"usage" not in roh):
+            continue
+        try:
+            o = json.loads(roh.decode("utf-8", "replace"))
+        except Exception:                                         # noqa: BLE001
+            continue
+        if o.get("type") == "system" and o.get("subtype") == "compact_boundary":
+            verdichtet = True
+            continue
+        if o.get("type") != "assistant":
+            continue
+        u = (o.get("message") or {}).get("usage") or {}
+        if not u:
+            continue
+        tok = ((u.get("input_tokens") or 0)
+               + (u.get("cache_creation_input_tokens") or 0)
+               + (u.get("cache_read_input_tokens") or 0))
+        return tok, verdichtet
+    return None, verdichtet
+
+
+def letzte_zusammenfassung(transkript):
+    """Text der juengsten Verdichtungs-Zusammenfassung, sonst None."""
+    daten = _ende_lesen(transkript)
+    if daten is None:
+        return None
+    for roh in reversed(daten.split(b"\n")):
+        if b"isCompactSummary" not in roh:
+            continue
+        try:
+            o = json.loads(roh.decode("utf-8", "replace"))
+        except Exception:                                         # noqa: BLE001
+            continue
+        if o.get("isCompactSummary") is not True:
+            continue
+        inhalt = (o.get("message") or {}).get("content")
+        if isinstance(inhalt, str):
+            return inhalt
+        if isinstance(inhalt, list):
+            return "\n".join(str(t.get("text", "")) for t in inhalt
+                             if isinstance(t, dict) and t.get("type") == "text")
+        return ""
+    return None
+
+
+def kennmarke_pruefen(marke, zusammenfassung):
+    """(art, meldung) mit art in ok · fehlt · unpruefbar · ohne_marke."""
+    if not marke:
+        return ("ohne_marke",
+                "Keine Kennmarke hinterlegt: vor dieser Verdichtung lief der "
+                "PreCompact-Hook von infinite-accuracy nicht.")
+    if zusammenfassung is None:
+        return ("unpruefbar",
+                "Kennmarke %s nicht pruefbar: keine Zusammenfassung im Transkript "
+                "gefunden." % marke)
+    if marke in zusammenfassung:
+        return ("ok", "Kennmarke %s in der Zusammenfassung bestaetigt." % marke)
+    return ("fehlt",
+            "WARNUNG: Kennmarke %s fehlt in der Zusammenfassung. Claude Code hat die "
+            "Anweisung von infinite-accuracy nicht uebernommen, moeglicherweise nach "
+            "einem Update von Claude Code. Abgelegtes im Zettelkasten nachschlagen "
+            "und den Befund dem Nutzer melden (doku/verdichtung.md)." % marke)
+
+
+def stand_pfad(basis, session_id):
+    return os.path.join(state_ordner(basis), "last-%s.json" % str(session_id)[:64])
+
+
+def stand_lesen(basis, session_id):
+    try:
+        with open(stand_pfad(basis, session_id), "r", encoding="utf-8") as f:
+            d = json.load(f)
+        return d if isinstance(d, dict) else {}
+    except Exception:                                             # noqa: BLE001
+        return {}
+
+
+def stand_schreiben(basis, session_id, stand):
+    try:
+        os.makedirs(state_ordner(basis), exist_ok=True)
+        with open(stand_pfad(basis, session_id), "w", encoding="utf-8") as f:
+            json.dump(stand, f, ensure_ascii=False)
+    except Exception:                                             # noqa: BLE001
+        pass
+
+
+def destillat_frisch(stand):
+    """Wurde das angeforderte Destillat nach dem Auftrag geschrieben?"""
+    pfad = stand.get("destillat")
+    if not pfad or not os.path.isfile(pfad):
+        return False
+    try:
+        return os.path.getmtime(pfad) >= float(stand.get("auftrag_ts") or 0) - 5
+    except Exception:                                             # noqa: BLE001
+        return False
+
+
+def riegel_grund(trigger, tok, stand):
+    """Leer = durchlassen. Sonst der Grund, warum die Verdichtung warten soll."""
+    if trigger != "auto" or tok is None:
+        return ""
+    grenze = _zahl("riegel_bis_token", 300000)
+    if tok >= grenze or destillat_frisch(stand):
+        return ""
+    return ("[infinite-accuracy] Verdichtung aufgeschoben: in dieser Sitzung wurde "
+            "noch nicht abgelegt (Kontext %s Token, Riegel bis %s). Beim naechsten "
+            "Userhalt fordert regelschub.py die Ablage an."
+            % (_punkt(tok), _punkt(grenze)))
+
+
+def kennmarke_bilden(session_id):
+    return "ia-%s-%s" % (str(session_id or "ohne")[:8], time.strftime("%Y%m%d%H%M%S"))
+
+
+def verdichtungs_anweisung(kennmarke, stand, rohprotokoll=None):
+    """Der Text, den Claude Code der Zusammenfassung als Anweisung mitgibt."""
+    zeilen = [
+        "[infinite-accuracy Kennmarke %s]" % kennmarke,
+        "Anweisung von infinite-accuracy fuer diese Zusammenfassung:",
+        "1. Beginne die Zusammenfassung woertlich mit der Zeile: "
+        "[infinite-accuracy Kennmarke %s]" % kennmarke,
+        "2. Was im Destillat unten oder im Zettelkasten abgelegt ist, nicht "
+        "nacherzaehlen: das Destillat als Grundstock uebernehmen, Abgelegtes nur "
+        "als Verweis (Dateipfad, Dossier) nennen.",
+        "3. Vollstaendig und woertlich erhalten: den laufenden Arbeitsschritt "
+        "(Auftrag, letzter Stand, naechster Schritt), offene Rueckfragen, "
+        "Festlegungen und Freigaben des Nutzers, Pfade, Hashes und Befehle der "
+        "laufenden Aufgabe.",
+        "4. Weglassen: Werkzeugausgaben, Dateiinhalte und Zwischenstaende, die "
+        "abgeschlossen oder abgelegt sind.",
+    ]
+    pfad = stand.get("destillat")
+    if pfad and os.path.isfile(pfad):
+        try:
+            with open(pfad, "r", encoding="utf-8", errors="replace") as f:
+                text = f.read().strip()
+            grenze = _zahl("verdichtung_destillat_max", 12000)
+            if len(text) > grenze:
+                text = text[:grenze].rstrip() + "\n[… gekuerzt, vollstaendig in %s]" % pfad
+            zeilen += ["", "--- Destillat %s ---" % pfad, text, "--- Ende Destillat ---"]
+        except Exception:                                         # noqa: BLE001
+            pass
+    else:
+        zeilen.append("Ein Destillat dieser Sitzung liegt nicht vor.")
+        if rohprotokoll:
+            zeilen.append("Rohprotokoll dieser Sitzung: %s" % rohprotokoll)
+    return "\n".join(zeilen)
 
 
 def main():
@@ -463,29 +687,52 @@ def main():
             sys.exit(0)
 
         ereignis = daten.get("hook_event_name") or "?"
-        if ereignis == "PreCompact":
-            anlass = "vor der Kontext-Komprimierung (%s)" % (daten.get("trigger") or "auto")
+        basis = projekt_verzeichnis(daten)
+        ordner = sitzungsordner(basis)
+        sid = daten.get("session_id")
+        vor_verdichtung = ereignis == "PreCompact"
+        stand = stand_lesen(basis, sid) if (vor_verdichtung and sid) else {}
+
+        if vor_verdichtung:
+            trigger = daten.get("trigger") or "auto"
+            tok, _ = kontext_token(pfad)
+            grund = riegel_grund(trigger, tok, stand)
+            if grund:
+                sys.stderr.write(grund + "\n")
+                sys.exit(2)
+            anlass = "vor der Kontext-Komprimierung (%s)" % trigger
             marke = "vorcompact"
         else:
             anlass = "Sitzungsende (%s)" % (daten.get("reason") or "?")
             marke = "ende"
 
-        basis = projekt_verzeichnis(daten)
-        ordner = sitzungsordner(basis)
-
-        fakten = ernten(pfad)
-        if len(fakten["prompts"]) >= _zahl("protokoll_min_prompts", 2):
-            os.makedirs(ordner, exist_ok=True)
-            name = "%s-%s-roh.md" % (time.strftime("%Y-%m-%d-%H%M"), marke)
-            text, getilgt_p = geheimnisse_tilgen(protokoll_bauen(fakten, anlass, basis))
-            if getilgt_p:
-                text += ("\n\n*Im Protokoll wurden %d Geheimnisse getilgt.*\n"
-                         % getilgt_p)
-            with open(os.path.join(ordner, name), "w", encoding="utf-8") as f:
-                f.write(text)
-            hausmeister(ordner)
+        protokoll = None
+        try:
+            fakten = ernten(pfad)
+            if len(fakten["prompts"]) >= _zahl("protokoll_min_prompts", 2):
+                os.makedirs(ordner, exist_ok=True)
+                name = "%s-%s-roh.md" % (time.strftime("%Y-%m-%d-%H%M"), marke)
+                text, getilgt_p = geheimnisse_tilgen(protokoll_bauen(fakten, anlass, basis))
+                if getilgt_p:
+                    text += ("\n\n*Im Protokoll wurden %d Geheimnisse getilgt.*\n"
+                             % getilgt_p)
+                protokoll = os.path.join(ordner, name)
+                with open(protokoll, "w", encoding="utf-8") as f:
+                    f.write(text)
+                hausmeister(ordner)
+                ernte_vermerken(basis, pfad)
+        except Exception:                                         # noqa: BLE001
+            pass
 
         haerten_und_buchen(pfad, marke, ordner)
+
+        if vor_verdichtung:
+            kennmarke = kennmarke_bilden(sid)
+            if sid:
+                stand["kennmarke"] = kennmarke
+                stand["kennmarke_ts"] = int(time.time())
+                stand_schreiben(basis, sid, stand)
+            print(verdichtungs_anweisung(kennmarke, stand, protokoll))
     except Exception:                                             # noqa: BLE001
         pass
 

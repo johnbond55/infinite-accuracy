@@ -3,7 +3,7 @@
 """konfig.py — der eine Zugang zur Konfiguration.
 
 Alles Betriebseigene steht in <projektwurzel>/.claude/infinite-accuracy/.
-Fehlt die Konfiguration, laeuft alles rein lokal.
+Fehlt die Konfiguration, laeuft alles rein lokal mit den Vorgaben.
 
 Begruendungen und Fallen: doku/konfig.md
 
@@ -11,6 +11,13 @@ ziele.json:
     {
       "<name>": {"ssh": "benutzer@rechner", "keys": ["pfad", ...],
                  "temp": "/tmp/ia-"}
+    }
+
+konfig.json:
+    {
+      "<zahl>": 123,
+      "<schalter>": "text",
+      "pfade": {"sitzungen": "...", "state": "...", "zettelkasten": "..."}
     }
 """
 import io
@@ -25,7 +32,8 @@ LOKAL = "lokal"
 TEMP_VORGABE = "/tmp/ia-"
 
 VORGABEN = {
-    "schwelle_zeichen": 500000,
+    "ablage_schwelle_token": 180000,
+    "riegel_bis_token": 300000,
     "regeln_max_zeichen": 8000,
     "schonfrist_zeichen": 120000,
     "aufraeumen_nach_tagen": 14,
@@ -34,17 +42,38 @@ VORGABEN = {
     "wiedervorlage_destillat": 40000,
     "wiedervorlage_roh": 20000,
     "wiedervorlage_roh_allein": 45000,
+    "verdichtung_destillat_max": 12000,
     "protokoll_max_zeilen": 40000,
     "protokoll_min_prompts": 2,
     "protokoll_max_prompts": 25,
     "protokoll_max_promptlaenge": 420,
     "protokoll_max_kommandos": 40,
     "protokoll_max_schluss": 2500,
+    "rohprotokolle_behalten": 40,
     "nachlese_mindestalter_sekunden": 300,
+    "nachernte_ruhe_sekunden": 7200,
+    "nachernte_fenster_tage": 7,
+    "haertung_sperre_minuten": 30,
     "journal_verwaist_stunden": 24,
     "index_max_zeichen": 12000,
     "eintrag_monster_zeichen": 6000,
+    "karte_max_zeichen": 2500,
+    "erkenntnisse_in_karte": 15,
+    "zettel_material_max": 9000,
+    "zettel_register_seiten": 6,
+    "zettel_volltext_seiten": 10,
+    "kreis_schwelle": 3,
+    "aktualisierung_intervall_stunden": 12,
+    "aktualisierung_zeitlimit_sekunden": 3,
 }
+
+ZEICHEN_VORGABEN = {
+    "aktualisierung": "an",
+    "aktualisierung_repo": "johnbond55/infinite-accuracy",
+    "aktualisierung_zweig": "main",
+}
+
+PFADE = ("sitzungen", "state", "zettelkasten")
 
 _zwischenspeicher = {}
 
@@ -98,9 +127,10 @@ def namen():
     return sorted(ziele()) + [LOKAL]
 
 
-def _zahlen():
-    if "zahlen" in _zwischenspeicher:
-        return _zwischenspeicher["zahlen"]
+def _roh():
+    """konfig.json als Objekt, einmal gelesen."""
+    if "roh" in _zwischenspeicher:
+        return _zwischenspeicher["roh"]
     pfad = os.path.join(konfig_ordner(), ZAHLEN_DATEI)
     geladen = {}
     if os.path.isfile(pfad):
@@ -108,14 +138,18 @@ def _zahlen():
             with io.open(pfad, "r", encoding="utf-8") as fh:
                 roh = json.load(fh)
             if isinstance(roh, dict):
-                geladen = {k: v for k, v in roh.items()
-                           if isinstance(v, (int, float)) and not isinstance(v, bool)}
+                geladen = roh
             else:
                 sys.stderr.write("ia-konfig: %s ist kein Objekt\n" % pfad)
         except (OSError, ValueError) as ex:
             sys.stderr.write("ia-konfig: %s nicht lesbar (%s)\n" % (pfad, ex))
-    _zwischenspeicher["zahlen"] = geladen
+    _zwischenspeicher["roh"] = geladen
     return geladen
+
+
+def _zahlen():
+    return {k: v for k, v in _roh().items()
+            if isinstance(v, (int, float)) and not isinstance(v, bool)}
 
 
 def zahl(name):
@@ -125,20 +159,46 @@ def zahl(name):
     return _zahlen().get(name, VORGABEN[name])
 
 
+def zeichen(name):
+    """Ein Schalter oder Text aus konfig.json. Unbekannte Namen werfen."""
+    if name not in ZEICHEN_VORGABEN:
+        raise KeyError("unbekannter Konfigurationswert %r" % name)
+    wert = _roh().get(name)
+    if isinstance(wert, str) and wert.strip():
+        return wert.strip()
+    return ZEICHEN_VORGABEN[name]
+
+
+def pfad(name):
+    """Ein Ablageort, absolut. Relative Angaben gelten ab der Projektwurzel."""
+    if name not in PFADE:
+        raise KeyError("unbekannter Ablageort %r" % name)
+    eigene = _roh().get("pfade")
+    wert = eigene.get(name) if isinstance(eigene, dict) else None
+    if isinstance(wert, str) and wert.strip():
+        wert = os.path.expanduser(wert.strip())
+        if not os.path.isabs(wert):
+            wert = os.path.join(projekt_wurzel(), wert)
+        return os.path.normpath(wert)
+    if name == "zettelkasten":
+        return os.path.join(projekt_wurzel(), ".claude", "zettelkasten")
+    return os.path.join(konfig_ordner(), name)
+
+
 def text(datei, vorgabe="", deckel=None):
     """Eine Textdatei aus dem Konfigurationsordner, woertlich.
 
     Kein .format(), keine Platzhalter — geschweifte Klammern im Nutzertext
     duerfen nichts ausloesen.
     """
-    pfad = os.path.join(konfig_ordner(), datei)
+    pfad_ = os.path.join(konfig_ordner(), datei)
     inhalt = vorgabe
-    if os.path.isfile(pfad):
+    if os.path.isfile(pfad_):
         try:
-            with io.open(pfad, "r", encoding="utf-8") as fh:
+            with io.open(pfad_, "r", encoding="utf-8") as fh:
                 inhalt = fh.read()
         except OSError as ex:
-            sys.stderr.write("ia-konfig: %s nicht lesbar (%s)\n" % (pfad, ex))
+            sys.stderr.write("ia-konfig: %s nicht lesbar (%s)\n" % (pfad_, ex))
     if deckel and len(inhalt) > deckel:
         inhalt = inhalt[:deckel] + "\n[gekuerzt: %s ist laenger als %d Zeichen]" % (
             datei, deckel)
@@ -147,17 +207,17 @@ def text(datei, vorgabe="", deckel=None):
 
 def tabelle(datei, vorgabe=None):
     """Eine JSON-Tabelle aus dem Konfigurationsordner."""
-    pfad = os.path.join(konfig_ordner(), datei)
-    if not os.path.isfile(pfad):
+    pfad_ = os.path.join(konfig_ordner(), datei)
+    if not os.path.isfile(pfad_):
         return dict(vorgabe or {})
     try:
-        with io.open(pfad, "r", encoding="utf-8") as fh:
+        with io.open(pfad_, "r", encoding="utf-8") as fh:
             roh = json.load(fh)
         if isinstance(roh, dict):
             return roh
-        sys.stderr.write("ia-konfig: %s ist kein Objekt\n" % pfad)
+        sys.stderr.write("ia-konfig: %s ist kein Objekt\n" % pfad_)
     except (OSError, ValueError) as ex:
-        sys.stderr.write("ia-konfig: %s nicht lesbar (%s)\n" % (pfad, ex))
+        sys.stderr.write("ia-konfig: %s nicht lesbar (%s)\n" % (pfad_, ex))
     return dict(vorgabe or {})
 
 
@@ -180,9 +240,9 @@ def schluessel(ziel):
     """Erster existierender SSH-Schluessel des Ziels, sonst None."""
     wurzel = projekt_wurzel()
     for k in (ziele().get(ziel) or {}).get("keys") or []:
-        pfad = k if os.path.isabs(k) else os.path.join(wurzel, k)
-        if os.path.isfile(pfad):
-            return pfad
+        pfad_ = k if os.path.isabs(k) else os.path.join(wurzel, k)
+        if os.path.isfile(pfad_):
+            return pfad_
     return None
 
 
@@ -206,6 +266,8 @@ def setzen_fuer_proben(gesetzt):
 
 def main():
     print("Konfigurationsordner: %s" % konfig_ordner())
+    for name in PFADE:
+        print("Ablage %-13s %s" % (name + ":", pfad(name)))
     gefunden = ziele()
     if not gefunden:
         print("Keine Fernziele konfiguriert — nur %r ist moeglich." % LOKAL)

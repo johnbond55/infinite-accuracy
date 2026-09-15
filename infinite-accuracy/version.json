@@ -1,0 +1,13 @@
+{
+  "version": "2.0.0",
+  "datum": "2026-09-15",
+  "aenderungen": [
+    "Verdichtung gesteuert: der PreCompact-Hook gibt der Zusammenfassung eine Anweisung mit Kennmarke und schiebt die automatische Verdichtung bis zur Ablage auf",
+    "Ablage-Auftrag ab 180.000 Token echter Kontextlast (usage-Zeile) statt Zeichenzählung und /compact-Vorschlag",
+    "Zettelkasten nach Vorbild der Schreibstube: ablegen, sinngemäß suchen, Trefferseiten ganz lesen, Besuchs-Log, Karte",
+    "Wiedervorlage nach jeder Verdichtung mit Kennmarkenprüfung; Härtung und Nachernte laufen abgekoppelt",
+    "Update-Routine: Hinweis beim Sitzungsstart, Installer mit Prüfsummen, Sicherung und Rückbau",
+    "Agent ia-leser für Lesearbeit auf haiku"
+  ],
+  "groesse_bytes": 283869
+}

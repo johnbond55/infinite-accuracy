@@ -1,16 +1,17 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""regelschub.py — Regeln nachschieben und die Kontextlast messen.
+"""regelschub.py — Regeln nachschieben, Kontextlast messen, Ablage anfordern.
 
-Laeuft bei jedem Prompt (UserPromptSubmit). Zwei Aufgaben:
+Laeuft bei jedem Prompt (UserPromptSubmit):
+  1. den Regeltext aus <konfigordner>/regeln.md einspeisen
+  2. die Kontextlast der juengsten Antwort aus ihrer usage-Zeile lesen und ab
+     ablage_schwelle_token einmal je Ueberschreitung die Ablage anfordern
+     (Zettelkasten und Destillat); das laufende Transkript wird dabei gehaertet
+  3. nach einer Verdichtung die Kennmarke nachpruefen, falls wiedervorlage.py
+     sie noch nicht bestaetigen konnte
 
-  1. Den Regeltext aus <konfigordner>/regeln.md als zusaetzlichen Kontext
-     einspeisen, damit er mit wachsendem Kontext nicht verblasst.
-  2. Die Kontextlast fortschreiben und bei erreichter Schwelle ein Destillat
-     anfordern, das laufende Transkript haerten und den Zaehler zuruecksetzen.
-
-Faellt irgendetwas aus, werden die Regeln trotzdem ausgeliefert — sie sind der
-Hauptzweck.
+Nach einer Verdichtung oder unter der Schwelle wird der Auftrag wieder scharf.
+Faellt irgendetwas aus, werden die Regeln trotzdem ausgeliefert.
 
 Begruendungen und Fallen: ../skills/kaskade/doku/regelschub.md
 """
@@ -21,33 +22,40 @@ import time
 
 HIER = os.path.dirname(os.path.abspath(__file__))
 KASKADE = os.path.join(os.path.dirname(HIER), "skills", "kaskade")
-if KASKADE not in sys.path:
-    sys.path.insert(0, KASKADE)
+for _p in (HIER, KASKADE):
+    if _p not in sys.path:
+        sys.path.insert(0, _p)
 try:
     import konfig
 except Exception:                                                 # noqa: BLE001
     konfig = None
+try:
+    import ernte
+except Exception:                                                 # noqa: BLE001
+    ernte = None
 
 REGELN_DATEI = "regeln.md"
-DESTILLAT_DATEI = "destillat.md"
+AUFTRAG_DATEI = "destillat.md"
 
 REGELN_VORGABE = """[Arbeitsregeln — bei jedem Prompt nachgeschoben]
 Es ist keine eigene Regeldatei hinterlegt. Lege <konfigordner>/regeln.md an,
 dann steht dieser Text hier.
 """
 
-DESTILLAT_VORGABE = """
-[infinite-accuracy — Kontextlast bei rund {tok} Tokens, Schnitt faellig]
-Dies ist ein Userhalt: Der Nutzer ist am Zug, du unterbrichst keinen laufenden
-Arbeitsgang. Schreibe deshalb JETZT, vor der eigentlichen Antwort, ein Destillat
-nach {ablage} mit drei Abschnitten:
-  was passierte · was gelernt wurde · was offen ist
-Kurz halten (unter 10.000 Zeichen) — Details bleiben in den Projektdateien.
-Danach die Frage normal beantworten, das Destillat in einem Satz erwaehnen und
-**/compact** vorschlagen — ausdruecklich KEINEN neuen Chat. Der Faden bleibt
-bestehen, nur der Kontext wird zusammengefasst; der PreCompact-Hook erntet und
-tilgt dabei von selbst. Ausloesen kannst du /compact nicht, das ist ein
-Handgriff des Nutzers."""
+AUFTRAG_VORGABE = """
+[infinite-accuracy — Kontext {tok} Token, Ablage faellig (Schwelle {schwelle})]
+Userhalt: der Nutzer ist am Zug, du unterbrichst keinen Arbeitsgang. Lege JETZT,
+vor der eigentlichen Antwort, ab:
+1. Zettelkasten: je Thema dieser Sitzung ein Eintrag (Ausgangslage, Weg,
+   Ergebnis; Fakten woertlich: Pfade, Zahlen, Befehle, Entscheidungen) und der
+   fortgeschriebene Dossier-Stand. Eingabedatei nach {eingang} schreiben,
+   dann: python "{zettel}" ablegen "{eingang}"
+   Aufbau der Datei: Skill zettel.
+2. Destillat nach {ablage} mit drei Abschnitten:
+   was passierte · was gelernt wurde · was offen ist — unter 10.000 Zeichen.
+Danach normal antworten und die Ablage in einem Satz nennen. Die Verdichtung
+laeuft danach von selbst: der Faden bleibt, Abgelegtes faellt aus dem Kontext
+und wird bei Bedarf nachgeschlagen: python "{zettel}" suche <begriffe>"""
 
 
 def _zahl(name, vorgabe):
@@ -57,13 +65,12 @@ def _zahl(name, vorgabe):
         return vorgabe
 
 
-def _ordner(unterordner, basis):
-    if konfig is not None:
-        try:
-            return os.path.join(konfig.konfig_ordner(), unterordner)
-        except Exception:                                         # noqa: BLE001
-            pass
-    return os.path.join(basis, ".claude", "infinite-accuracy", unterordner)
+def _punkt(n):
+    return "{:,}".format(int(n)).replace(",", ".")
+
+
+def zettel_werkzeug():
+    return os.path.join(os.path.dirname(HIER), "skills", "zettel", "zettel.py")
 
 
 def regeln_laden():
@@ -77,22 +84,29 @@ def regeln_laden():
         return REGELN_VORGABE
 
 
-def destillat_auftrag(zeichen, ablage):
-    """Der Schnittauftrag, mit eingesetzten Werten.
+def auftrag_text(tok, ablage, eingang):
+    """Der Ablage-Auftrag, mit eingesetzten Werten.
 
     Ersetzt per str.replace, nie per str.format: Eine geschweifte Klammer im
     Nutzertext wuerde format() zum Absturz bringen.
     """
-    text = DESTILLAT_VORGABE
+    text = AUFTRAG_VORGABE
     if konfig is not None:
         try:
-            text = konfig.text(DESTILLAT_DATEI, vorgabe=DESTILLAT_VORGABE)
+            text = konfig.text(AUFTRAG_DATEI, vorgabe=AUFTRAG_VORGABE)
         except Exception:                                         # noqa: BLE001
             pass
-    tok = "{:,}".format(zeichen // 4).replace(",", ".")
-    return (text.replace("{tok}", tok)
+    return (text.replace("{tok}", _punkt(tok))
+                .replace("{schwelle}", _punkt(_zahl("ablage_schwelle_token", 180000)))
                 .replace("{datum}", time.strftime("%Y-%m-%d-%H%M"))
-                .replace("{ablage}", ablage))
+                .replace("{ablage}", ablage)
+                .replace("{eingang}", eingang)
+                .replace("{zettel}", zettel_werkzeug()))
+
+
+def destillat_auftrag(tok, ablage):
+    """Alter Name, gleiche Wirkung."""
+    return auftrag_text(tok, ablage, os.path.join("_eingang", "ablage.json"))
 
 
 def projekt_verzeichnis(daten):
@@ -108,91 +122,8 @@ def projekt_verzeichnis(daten):
     return os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 
-def _zeichen_der_zeile(zeile):
-    """Wie viel Kontext kostet diese Transkript-Zeile?"""
-    try:
-        o = json.loads(zeile)
-    except Exception:                                             # noqa: BLE001
-        return 0
-    inhalt = (o.get("message") or {}).get("content")
-    if isinstance(inhalt, str):
-        return len(inhalt)
-    if not isinstance(inhalt, list):
-        return 0
-    n = 0
-    for teil in inhalt:
-        if not isinstance(teil, dict):
-            continue
-        art = teil.get("type")
-        if art == "text":
-            n += len(str(teil.get("text", "")))
-        elif art == "thinking":
-            n += len(str(teil.get("thinking", "")))
-        elif art in ("tool_use", "tool_result"):
-            wert = teil.get("input") if art == "tool_use" else teil.get("content")
-            if wert is not None:
-                try:
-                    n += len(json.dumps(wert, ensure_ascii=False))
-                except Exception:                                 # noqa: BLE001
-                    n += len(str(wert))
-    return n
-
-
-def kontextlast(basis, session_id, transkript):
-    """Fortgeschriebene Kontextlast in Zeichen."""
-    if not session_id or not transkript or not os.path.isfile(transkript):
-        return None
-    ordner = _ordner("state", basis)
-    os.makedirs(ordner, exist_ok=True)
-    pfad = os.path.join(ordner, "last-%s.json" % str(session_id)[:64])
-
-    stand = {"pos": 0, "zeichen": 0}
-    if os.path.isfile(pfad):
-        try:
-            with open(pfad, "r", encoding="utf-8") as f:
-                stand.update(json.load(f))
-        except Exception:                                         # noqa: BLE001
-            pass
-
-    groesse = os.path.getsize(transkript)
-    if groesse < stand["pos"]:
-        stand = {"pos": 0, "zeichen": 0}
-
-    try:
-        with open(transkript, "r", encoding="utf-8", errors="replace") as f:
-            f.seek(stand["pos"])
-            for zeile in f:
-                if zeile.strip():
-                    stand["zeichen"] += _zeichen_der_zeile(zeile)
-            stand["pos"] = f.tell()
-    except Exception:                                             # noqa: BLE001
-        return stand.get("zeichen")
-
-    try:
-        with open(pfad, "w", encoding="utf-8") as f:
-            json.dump({"pos": stand["pos"], "zeichen": stand["zeichen"],
-                       "ts": int(time.time())}, f)
-    except Exception:                                             # noqa: BLE001
-        pass
-
-    aufraeumen(ordner)
-    return stand["zeichen"]
-
-
-def stand_zuruecksetzen(basis, session_id, transkript):
-    """Nach einem Schnitt neu zaehlen — ab der aktuellen Position."""
-    try:
-        pfad = os.path.join(_ordner("state", basis),
-                            "last-%s.json" % str(session_id)[:64])
-        with open(pfad, "w", encoding="utf-8") as f:
-            json.dump({"pos": os.path.getsize(transkript), "zeichen": 0,
-                       "ts": int(time.time())}, f)
-    except Exception:                                             # noqa: BLE001
-        pass
-
-
 def aufraeumen(ordner):
-    """Hausmeister: Zaehlerdateien alter Sitzungen entfernen."""
+    """Hausmeister: Standdateien alter Sitzungen entfernen."""
     try:
         grenze = time.time() - _zahl("aufraeumen_nach_tagen", 14) * 86400
         entfernt = 0
@@ -212,14 +143,11 @@ def aufraeumen(ordner):
 
 def tilgen_anstossen(basis, transkript):
     """Das laufende Transkript haerten lassen — ueber ernte.py."""
-    if not transkript:
+    if not transkript or ernte is None:
         return 0
     try:
-        if HIER not in sys.path:
-            sys.path.insert(0, HIER)
-        import ernte
         return ernte.haerten_und_buchen(
-            transkript, "kontextlast", _ordner("sitzungen", basis))
+            transkript, "kontextlast", ernte.sitzungsordner(basis))
     except Exception:                                             # noqa: BLE001
         return 0
 
@@ -238,17 +166,40 @@ def main():
         basis = projekt_verzeichnis(daten)
         sid = daten.get("session_id")
         transkript = daten.get("transcript_path")
-        zeichen = kontextlast(basis, sid, transkript)
-        if zeichen is not None and zeichen >= _zahl("schwelle_zeichen", 500000):
-            ablage = os.path.join(_ordner("sitzungen", basis),
-                                  time.strftime("%Y-%m-%d-%H%M") + ".md")
-            text += destillat_auftrag(zeichen, ablage)
-            getilgt = tilgen_anstossen(basis, transkript)
-            if getilgt:
-                text += ("\n[infinite-accuracy] %d Geheimnis(se) aus dem laufenden "
-                         "Transkript getilgt (die letzten Zeichen bleiben "
-                         "unberuehrt).\n" % getilgt)
-            stand_zuruecksetzen(basis, sid, transkript)
+        if sid and ernte is not None:
+            stand = ernte.stand_lesen(basis, sid)
+            tok, verdichtet = ernte.kontext_token(transkript)
+
+            marke = stand.get("kennmarke")
+            if verdichtet and marke and marke != stand.get("geprueft_marke"):
+                art, meldung = ernte.kennmarke_pruefen(
+                    marke, ernte.letzte_zusammenfassung(transkript))
+                if art in ("ok", "fehlt"):
+                    stand["geprueft_marke"] = marke
+                    stand["kennmarke_geprueft"] = art
+                if art == "fehlt":
+                    text += "\n[infinite-accuracy] " + meldung
+
+            if tok is None or verdichtet or tok < _zahl("ablage_schwelle_token", 180000):
+                stand["gemeldet"] = False
+            elif not stand.get("gemeldet"):
+                datum = time.strftime("%Y-%m-%d-%H%M")
+                ablage = os.path.join(ernte.sitzungsordner(basis), datum + ".md")
+                eingang = os.path.join(ernte._pfad("zettelkasten", basis),
+                                       "_eingang", datum + ".json")
+                text += auftrag_text(tok, ablage, eingang)
+                getilgt = tilgen_anstossen(basis, transkript)
+                if getilgt:
+                    text += ("\n[infinite-accuracy] %d Geheimnis(se) aus dem laufenden "
+                             "Transkript getilgt (die letzten Zeichen bleiben "
+                             "unberuehrt).\n" % getilgt)
+                stand["gemeldet"] = True
+                stand["auftrag_ts"] = int(time.time())
+                stand["destillat"] = ablage
+            stand["tok"] = tok
+            stand["ts"] = int(time.time())
+            ernte.stand_schreiben(basis, sid, stand)
+            aufraeumen(ernte.state_ordner(basis))
     except Exception:                                             # noqa: BLE001
         pass
 
