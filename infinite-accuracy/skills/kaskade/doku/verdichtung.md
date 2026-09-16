@@ -91,10 +91,34 @@ Verdichtung dampfte sie dann auf 15.000–18.000 ein.
 
 Claude Code kann die Zusammenfassung im Hintergrund vorbereiten
 (`precomputeCompactionEnabled`). Auch dieser Weg ruft den PreCompact-Hook auf,
-unter Umständen früher und mehrfach. Folgen: zusätzliche Rohprotokolle, und die
-Kennmarke kann aus einem früheren Aufruf stammen — dann meldet die Prüfung
-`fehlt`, obwohl die Anweisung wirkte. Bei gehäuften Falschmeldungen die
-Vorberechnung abschalten.
+unter Umständen früher und mehrfach. Folge: zusätzliche Rohprotokolle. Dass die
+Kennmarke dabei aus einem früheren Aufruf stammt, meldet die Prüfung seit 2.0.1
+nicht mehr als `fehlt` — sie vergleicht die Zeit der jüngsten Zusammenfassung
+mit der Zeit der Kennmarke. Ist die Zusammenfassung älter, hat die Verdichtung
+noch nicht stattgefunden: `unpruefbar`.
+
+---
+
+## Wann die Prüfung greift
+
+`wiedervorlage.py` prüft die Kennmarke beim Sitzungsstart. Oft steht die
+Zusammenfassung zu diesem Zeitpunkt noch gar nicht im Transkript — Claude Code
+schreibt sie eine Minute später. Dann meldet der Start `unpruefbar`, und das ist
+kein Befund.
+
+Deshalb prüft `regelschub.py` bei jedem Prompt nach, solange die Marke kein
+Urteil hat (`geprueft_marke` im Stand). Bis 2.0.0 hing diese Nachprüfung an
+`verdichtet` aus `kontext_token()` — das schlägt nur an, solange nach der
+Verdichtungsmarke noch keine Antwort steht. Nach dem ersten Turn war die Marke
+damit dauerhaft ungeprüft, ohne dass jemand es merkte.
+
+| Fall | Urteil |
+|---|---|
+| Marke steht in der Zusammenfassung | `ok` |
+| keine Zusammenfassung im Transkript | `unpruefbar`, beim nächsten Prompt erneut |
+| Zusammenfassung älter als die Kennmarke (Riegel hielt) | `unpruefbar` |
+| Zusammenfassung jünger, Marke fehlt darin | `fehlt` — Johannes melden |
+| keine Kennmarke hinterlegt | `ohne_marke` — der PreCompact-Hook lief nicht |
 
 ---
 

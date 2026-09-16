@@ -1,13 +1,10 @@
 {
-  "version": "2.0.0",
-  "datum": "2026-09-15",
+  "version": "2.0.1",
+  "datum": "2026-09-16",
   "aenderungen": [
-    "Verdichtung gesteuert: der PreCompact-Hook gibt der Zusammenfassung eine Anweisung mit Kennmarke und schiebt die automatische Verdichtung bis zur Ablage auf",
-    "Ablage-Auftrag ab 180.000 Token echter Kontextlast (usage-Zeile) statt Zeichenzählung und /compact-Vorschlag",
-    "Zettelkasten nach Vorbild der Schreibstube: ablegen, sinngemäß suchen, Trefferseiten ganz lesen, Besuchs-Log, Karte",
-    "Wiedervorlage nach jeder Verdichtung mit Kennmarkenprüfung; Härtung und Nachernte laufen abgekoppelt",
-    "Update-Routine: Hinweis beim Sitzungsstart, Installer mit Prüfsummen, Sicherung und Rückbau",
-    "Agent ia-leser für Lesearbeit auf haiku"
+    "Kennmarkenpruefung wird nachgeholt: beim ersten Prompt nach der Verdichtung steht die Zusammenfassung oft noch nicht im Transkript, danach meldete kontext_token sie nicht mehr - die Marke blieb fuer immer ungeprueft",
+    "Kein Fehlalarm mehr bei aufgeschobener Verdichtung: ist die juengste Zusammenfassung aelter als die Kennmarke, heisst das unpruefbar statt fehlt",
+    "Neu in ernte.py: zusammenfassung_mit_zeit(); kennmarke_pruefen() nimmt beide Zeiten entgegen (alte Aufrufe bleiben gueltig)"
   ],
-  "groesse_bytes": 283869
+  "groesse_bytes": 289203
 }

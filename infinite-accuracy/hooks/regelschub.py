@@ -171,9 +171,14 @@ def main():
             tok, verdichtet = ernte.kontext_token(transkript)
 
             marke = stand.get("kennmarke")
-            if verdichtet and marke and marke != stand.get("geprueft_marke"):
+            if marke and marke != stand.get("geprueft_marke"):
+                # Nicht an `verdichtet` haengen: beim ersten Prompt nach der
+                # Verdichtung steht die Zusammenfassung oft noch nicht im
+                # Transkript (Rennen), danach meldet kontext_token sie nicht
+                # mehr - die Marke bliebe sonst fuer immer ungeprueft.
+                zus, zeit = ernte.zusammenfassung_mit_zeit(transkript)
                 art, meldung = ernte.kennmarke_pruefen(
-                    marke, ernte.letzte_zusammenfassung(transkript))
+                    marke, zus, zeit, stand.get("kennmarke_ts"))
                 if art in ("ok", "fehlt"):
                     stand["geprueft_marke"] = marke
                     stand["kennmarke_geprueft"] = art

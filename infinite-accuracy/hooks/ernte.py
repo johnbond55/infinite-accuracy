@@ -20,6 +20,7 @@ kennmarke_pruefen, stand_lesen, stand_schreiben, sitzungsordner, state_ordner.
 
 Begruendungen und Fallen: ../skills/kaskade/doku/ernte.md und verdichtung.md
 """
+import calendar
 import json
 import os
 import re
@@ -36,6 +37,7 @@ except Exception:                                                 # noqa: BLE001
     konfig = None
 
 ENDE_BYTES = 4 * 1024 * 1024
+TRENNER = bytes([10])          # Zeilentrenner der Transkripte
 
 
 def _zahl(name, vorgabe):
@@ -544,12 +546,26 @@ def kontext_token(transkript):
     return None, verdichtet
 
 
-def letzte_zusammenfassung(transkript):
-    """Text der juengsten Verdichtungs-Zusammenfassung, sonst None."""
+def _zeit_aus_marke(text):
+    """Zeitstempel einer Transkriptzeile (ISO in UTC) als Epochensekunden."""
+    try:
+        return calendar.timegm(time.strptime(str(text)[:19], "%Y-%m-%dT%H:%M:%S"))
+    except Exception:                                             # noqa: BLE001
+        return None
+
+
+def zusammenfassung_mit_zeit(transkript):
+    """(text, zeit) der juengsten Verdichtungs-Zusammenfassung, sonst (None, None).
+
+    Die Zeit entscheidet, ob die Zusammenfassung zur zuletzt vergebenen
+    Kennmarke gehoert. Eine aeltere stammt von einer frueheren Verdichtung:
+    dann wurde die neue aufgeschoben (Riegel) und darf keinen Fehlalarm
+    ausloesen.
+    """
     daten = _ende_lesen(transkript)
     if daten is None:
-        return None
-    for roh in reversed(daten.split(b"\n")):
+        return None, None
+    for roh in reversed(daten.split(TRENNER)):
         if b"isCompactSummary" not in roh:
             continue
         try:
@@ -558,18 +574,32 @@ def letzte_zusammenfassung(transkript):
             continue
         if o.get("isCompactSummary") is not True:
             continue
+        zeit = _zeit_aus_marke(o.get("timestamp"))
         inhalt = (o.get("message") or {}).get("content")
         if isinstance(inhalt, str):
-            return inhalt
+            return inhalt, zeit
         if isinstance(inhalt, list):
-            return "\n".join(str(t.get("text", "")) for t in inhalt
-                             if isinstance(t, dict) and t.get("type") == "text")
-        return ""
-    return None
+            return TRENNER.decode("ascii").join(
+                str(t.get("text", "")) for t in inhalt
+                if isinstance(t, dict) and t.get("type") == "text"), zeit
+        return "", zeit
+    return None, None
 
 
-def kennmarke_pruefen(marke, zusammenfassung):
-    """(art, meldung) mit art in ok · fehlt · unpruefbar · ohne_marke."""
+def letzte_zusammenfassung(transkript):
+    """Text der juengsten Verdichtungs-Zusammenfassung, sonst None."""
+    return zusammenfassung_mit_zeit(transkript)[0]
+
+
+def kennmarke_pruefen(marke, zusammenfassung, zusammenfassung_zeit=None,
+                      marke_zeit=None):
+    """(art, meldung) mit art in ok · fehlt · unpruefbar · ohne_marke.
+
+    Mit beiden Zeiten wird unterschieden, ob die Zusammenfassung ueberhaupt
+    zu dieser Kennmarke gehoert. Fehlt die Marke in einer AELTEREN
+    Zusammenfassung, hat die Verdichtung noch nicht stattgefunden - das ist
+    kein Befund, sondern der aufgeschobene Riegel.
+    """
     if not marke:
         return ("ohne_marke",
                 "Keine Kennmarke hinterlegt: vor dieser Verdichtung lief der "
@@ -580,6 +610,12 @@ def kennmarke_pruefen(marke, zusammenfassung):
                 "gefunden." % marke)
     if marke in zusammenfassung:
         return ("ok", "Kennmarke %s in der Zusammenfassung bestaetigt." % marke)
+    if (zusammenfassung_zeit is not None and marke_zeit is not None
+            and zusammenfassung_zeit < marke_zeit):
+        return ("unpruefbar",
+                "Kennmarke %s nicht pruefbar: die juengste Zusammenfassung ist "
+                "aelter als die Kennmarke - die Verdichtung steht noch aus."
+                % marke)
     return ("fehlt",
             "WARNUNG: Kennmarke %s fehlt in der Zusammenfassung. Claude Code hat die "
             "Anweisung von infinite-accuracy nicht uebernommen, moeglicherweise nach "

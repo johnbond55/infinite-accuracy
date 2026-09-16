@@ -173,8 +173,9 @@ def nach_verdichtung(daten, basis):
     stand = ernte.stand_lesen(basis, sid) if (ernte is not None and sid) else {}
 
     if ernte is not None:
+        zus, zeit = ernte.zusammenfassung_mit_zeit(transkript)
         art, meldung = ernte.kennmarke_pruefen(
-            stand.get("kennmarke"), ernte.letzte_zusammenfassung(transkript))
+            stand.get("kennmarke"), zus, zeit, stand.get("kennmarke_ts"))
         if sid and art in ("ok", "fehlt"):
             stand["geprueft_marke"] = stand.get("kennmarke")
             stand["kennmarke_geprueft"] = art

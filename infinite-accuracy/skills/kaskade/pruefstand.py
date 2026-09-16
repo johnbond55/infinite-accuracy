@@ -256,6 +256,41 @@ def _verdichtungsproben():
         p.append(("ohne Zusammenfassung heisst unpruefbar, nicht fehlt",
                   ernte.kennmarke_pruefen("ia-probe-1", None)[0] == "unpruefbar", True,
                   "ein Fehlalarm bei jeder Verdichtung wird ignoriert"))
+
+        t4 = _transkript(tmp, "d.jsonl", [
+            {"type": "user", "isCompactSummary": True,
+             "timestamp": "2026-09-16T05:00:00.000Z",
+             "message": {"content": "alte Zusammenfassung [Kennmarke ia-probe-0]"}},
+            _antwort(100)])
+        zus4, zeit4 = ernte.zusammenfassung_mit_zeit(t4)
+        p.append(("Zusammenfassung wird mit ihrer Zeit gelesen",
+                  zeit4 is not None and "ia-probe-0" in (zus4 or ""), True,
+                  "ohne Zeit ist nicht zu sagen, zu welcher Kennmarke sie gehoert"))
+        p.append(("aeltere Zusammenfassung heisst unpruefbar, nicht fehlt",
+                  ernte.kennmarke_pruefen("ia-probe-9", zus4, zeit4,
+                                          zeit4 + 60)[0] == "unpruefbar", True,
+                  "der Riegel schiebt die Verdichtung auf - das ist kein Befund"))
+        p.append(("juengere Zusammenfassung ohne Marke bleibt ein Befund",
+                  ernte.kennmarke_pruefen("ia-probe-9", zus4, zeit4,
+                                          zeit4 - 60)[0] == "fehlt", True,
+                  "sonst bliebe ein echter Ausfall der Anweisung unbemerkt"))
+
+        proj = os.path.join(tmp, "projekt-kennmarke")
+        os.makedirs(os.path.join(proj, ".claude", "state"))
+        t5 = _transkript(tmp, "e.jsonl", [
+            {"type": "user", "isCompactSummary": True,
+             "timestamp": "2026-09-16T06:00:00.000Z",
+             "message": {"content":
+                         "Zusammenfassung [infinite-accuracy Kennmarke ia-probe-5]"}},
+            _antwort(1000)])
+        ernte.stand_schreiben(proj, "sid-5",
+                              {"kennmarke": "ia-probe-5", "kennmarke_ts": 1000})
+        _hook_prozess(os.path.join(_hookordner(), "regelschub.py"),
+                      {"session_id": "sid-5", "transcript_path": t5, "cwd": proj,
+                       "hook_event_name": "UserPromptSubmit", "prompt": "x"}, {})
+        p.append(("Kennmarke wird auch nach der ersten Antwort noch geprueft",
+                  ernte.stand_lesen(proj, "sid-5").get("kennmarke_geprueft"), "ok",
+                  "beim ersten Prompt nach der Verdichtung fehlt die Zusammenfassung oft noch"))
         p.append(("Ablage-Auftrag ueberlebt geschweifte Klammern",
                   "{eigene}" in regelschub.auftrag_text(200000, "x{eigene}y", "e.json"), True,
                   "str.format wuerde hier abstuerzen"))

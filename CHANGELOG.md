@@ -1,5 +1,31 @@
 # Änderungen
 
+## 2.0.1 — 16.09.2026
+
+### Behoben
+
+- **Die Kennmarke blieb ungeprüft.** `wiedervorlage.py` prüft sie beim
+  Sitzungsstart — dort steht die Zusammenfassung aber oft noch nicht im
+  Transkript (Claude Code schreibt sie erst danach), und die Nachprüfung in
+  `regelschub.py` hing an `verdichtet`, das nach der ersten Antwort nicht
+  mehr anschlägt. Ergebnis: „nicht prüfbar" beim Start, danach nie wieder
+  eine Prüfung. Die Nachprüfung läuft jetzt bei jedem Prompt, bis sie ein
+  Urteil hat.
+- **Fehlalarm bei aufgeschobener Verdichtung.** Hielt der Riegel die
+  Verdichtung zurück, verglich die Prüfung die neue Kennmarke mit der
+  Zusammenfassung der VORIGEN Verdichtung und hätte „fehlt" gemeldet. Jetzt
+  entscheidet der Zeitvergleich: eine ältere Zusammenfassung heißt
+  „unprüfbar".
+
+### Geändert
+
+- `ernte.zusammenfassung_mit_zeit()` liefert Text und Zeitstempel der
+  jüngsten Zusammenfassung. `letzte_zusammenfassung()` bleibt als Name
+  bestehen, `kennmarke_pruefen()` nimmt beide Zeiten optional entgegen —
+  alte Aufrufe verhalten sich wie bisher.
+- Prüfstand: 162 Proben (vier neue). Die Prozessprobe „Kennmarke wird auch
+  nach der ersten Antwort noch geprüft" fällt mit der alten Bedingung durch.
+
 ## 2.0.0 — 15.09.2026
 
 ### Neu
