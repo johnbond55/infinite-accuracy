@@ -1,10 +1,11 @@
 {
-  "version": "2.0.1",
+  "version": "2.0.2",
   "datum": "2026-09-16",
   "aenderungen": [
-    "Kennmarkenpruefung wird nachgeholt: beim ersten Prompt nach der Verdichtung steht die Zusammenfassung oft noch nicht im Transkript, danach meldete kontext_token sie nicht mehr - die Marke blieb fuer immer ungeprueft",
-    "Kein Fehlalarm mehr bei aufgeschobener Verdichtung: ist die juengste Zusammenfassung aelter als die Kennmarke, heisst das unpruefbar statt fehlt",
-    "Neu in ernte.py: zusammenfassung_mit_zeit(); kennmarke_pruefen() nimmt beide Zeiten entgegen (alte Aufrufe bleiben gueltig)"
+    "Lizenz von MIT auf EUPL-1.2 gewechselt. Diese Fassung liefert den Wechsel erstmals aus: LICENSE reist im Paket mit und wird nach .claude/infinite-accuracy/paket/LICENSE installiert",
+    "In 2.0.1 fehlte der Lizenztext. Der Wechsel kam erst nach dem Tag v2.0.1 in den Zweig, und die Update-Routine laedt das Archiv des Tags - erreichbar wird er deshalb nur mit einer neuen Fassung",
+    "plugin.json traegt das Feld license. Die amtliche deutsche Fassung liegt als EUPL-1.2-DE.txt im Repository und ist in .gitattributes von der LF-Normalisierung ausgenommen",
+    "Keine Codeaenderung gegenueber 2.0.1: Hooks, Skills, Agenten, Vorlagen und Doku sind unveraendert"
   ],
   "groesse_bytes": 303080
 }

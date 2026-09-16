@@ -1,5 +1,5 @@
 {
-  "version": "2.0.1",
+  "version": "2.0.2",
   "dateien": {
     "LICENSE": {
       "sha256": "73b15da7a9994a24a5afbd9377c80db2c0128524aaff1cd693525d306cb68e6d",
@@ -10,11 +10,11 @@
       "bytes": 19544
     },
     "version.json": {
-      "sha256": "fb7b0c5becd3c7c4148cc9ae02587e1f53bfb30be6f5a4a2822c71e0088f79b4",
-      "bytes": 606
+      "sha256": "c8a0d58bbd286872ce2ba89d3de73701194763dbd58eb8fde19978125d2302b3",
+      "bytes": 771
     },
     ".claude-plugin/plugin.json": {
-      "sha256": "1442b46307eb4f796b545b13adf4f34721af5f07337deaa6aa00c1c2d32c8baa",
+      "sha256": "701a1cbd3c6df034fb9190f37d384893e97a325b059f97eb11540cd5fefa8818",
       "bytes": 285
     },
     "agents/ia-ausfuehrer.md": {

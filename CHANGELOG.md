@@ -1,14 +1,28 @@
 # Änderungen
 
-## Lizenzwechsel — 16.09.2026
+## 2.0.2 — 16.09.2026
+
+### Geaendert
 
 - Lizenz von **MIT** auf **EUPL-1.2** (European Union Public Licence)
   gewechselt. Grund: die MIT-Lizenz laesst zu, dass Ableitungen geschlossen
   werden; das Werkzeug soll offen bleiben. Die EUPL haelt zugleich den
   Urhebervermerk fest, liegt als verbindlicher deutscher Rechtstext vor und
   ist zu GPL, AGPL, LGPL, MPL, EPL, OSL, CeCILL und LiLiQ kompatibel.
-- Keine Codeaenderung, keine neue Paketfassung: `version.json`,
-  `plugin.json` und `PRUEFSUMMEN.json` sind unberuehrt.
+- **Neu im Paket: `LICENSE`.** Der Lizenztext reist jetzt mit und wird nach
+  `.claude/infinite-accuracy/paket/LICENSE` installiert; eine
+  Projektinstallation waechst damit von 39 auf 40 Dateien.
+- **Diese Fassung liefert den Wechsel aus.** In 2.0.1 fehlte er: der Wechsel
+  kam erst nach dem Tag `v2.0.1` in den Zweig, und die Update-Routine liest
+  die Version vom Zweig, laedt das Archiv aber vom Tag. Ohne neue Fassung
+  erreicht ein Lizenzwechsel deshalb kein Projekt.
+- `.claude-plugin/plugin.json` traegt das Feld `license`.
+- Die amtliche deutsche Fassung liegt als `EUPL-1.2-DE.txt` im Repository.
+  `.gitattributes` nimmt sie von der LF-Normalisierung aus (`-text`), damit
+  der Rechtstext byteweise der Kommissionsfassung entspricht.
+- Keine Codeaenderung gegenueber 2.0.1. Hooks, Skills, Agenten, Vorlagen und
+  Doku sind unveraendert; nachgezogen wurden `version.json`, `plugin.json`
+  und `PRUEFSUMMEN.json`.
 - Fassungen bis einschliesslich 2.0.1 bleiben unter MIT verfuegbar.
 
 ## 2.0.1 — 16.09.2026
