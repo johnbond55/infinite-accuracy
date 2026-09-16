@@ -163,13 +163,18 @@ Copyright (c) 2026 Johannes Volmer
 Licensed under the EUPL — European Union Public Licence, Version 1.2,
 siehe [LICENSE](LICENSE). SPDX-Kennung: `EUPL-1.2`.
 
-Die EUPL gilt in 23 Sprachfassungen gleichwertig; die verbindliche deutsche
-Fassung steht im Amtsblatt der Europaeischen Union (CELEX 32017D0863).
+Die EUPL gilt in 23 Sprachfassungen gleichwertig. Die deutsche liegt als
+[EUPL-1.2-DE.txt](EUPL-1.2-DE.txt) bei — unveraendert von der Europaeischen
+Kommission uebernommen — und steht im Amtsblatt der Europaeischen Union
+(CELEX 32017D0863).
 
-Was das heisst: Verwenden darf das Werkzeug jeder, auch im Betrieb und auch
-kommerziell, ohne jede Pflicht. Wer eine **veraenderte Fassung weitergibt**,
-muss sie wieder unter der EUPL oder einer der im Anhang genannten Lizenzen
-offenlegen. Was mit dem Werkzeug **erzeugt** wird, faellt nicht darunter.
+Was das heisst: **Verwenden** darf das Werkzeug jeder, auch im Betrieb und
+auch kommerziell, ohne jede Pflicht. Wer eine **veraenderte Fassung
+weitergibt**, muss sie wieder unter der EUPL oder einer der im Anhang
+genannten Lizenzen offenlegen. Was du **mit** dem Werkzeug erarbeitest,
+gehoert dir — mit einer Ausnahme: die Dateien, die dieses Paket selbst
+mitbringt und die die Installation nach `.claude/` kopiert, bleiben unter
+dieser Lizenz.
 
 Fassungen bis einschliesslich 2.0.1 wurden unter der MIT-Lizenz
 veroeffentlicht und bleiben unter dieser Lizenz verfuegbar.

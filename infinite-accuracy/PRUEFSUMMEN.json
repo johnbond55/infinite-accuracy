@@ -1,17 +1,21 @@
 {
   "version": "2.0.1",
   "dateien": {
+    "LICENSE": {
+      "sha256": "73b15da7a9994a24a5afbd9377c80db2c0128524aaff1cd693525d306cb68e6d",
+      "bytes": 13852
+    },
     "installieren.py": {
       "sha256": "6071e37cd3ec9711d9e90638dcb9ec8e2cbfc74ed412528771e463a6e4262b80",
       "bytes": 19544
     },
     "version.json": {
-      "sha256": "9fe7e3948434ccb32b1371ce969e83253925882b9b87ca2ed127f39bcd8a5221",
+      "sha256": "fb7b0c5becd3c7c4148cc9ae02587e1f53bfb30be6f5a4a2822c71e0088f79b4",
       "bytes": 606
     },
     ".claude-plugin/plugin.json": {
-      "sha256": "184f5d56d5f575f3a3baf066297b35e3239e9f61976e8d6f86563fa735fae0f1",
-      "bytes": 260
+      "sha256": "1442b46307eb4f796b545b13adf4f34721af5f07337deaa6aa00c1c2d32c8baa",
+      "bytes": 285
     },
     "agents/ia-ausfuehrer.md": {
       "sha256": "d74d7ff8a17be8c59ab2ba50f8969310914f24496f3a61d8e878a1cfa8828c84",

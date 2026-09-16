@@ -6,5 +6,5 @@
     "Kein Fehlalarm mehr bei aufgeschobener Verdichtung: ist die juengste Zusammenfassung aelter als die Kennmarke, heisst das unpruefbar statt fehlt",
     "Neu in ernte.py: zusammenfassung_mit_zeit(); kennmarke_pruefen() nimmt beide Zeiten entgegen (alte Aufrufe bleiben gueltig)"
   ],
-  "groesse_bytes": 289203
+  "groesse_bytes": 303080
 }
