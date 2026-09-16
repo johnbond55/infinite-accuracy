@@ -158,4 +158,18 @@ Sprache: Deutsch, durchgängig. Python 3.8 oder neuer, nur Standardbibliothek.
 
 ## Lizenz
 
-MIT, siehe [LICENSE](LICENSE).
+Copyright (c) 2026 Johannes Volmer
+
+Licensed under the EUPL — European Union Public Licence, Version 1.2,
+siehe [LICENSE](LICENSE). SPDX-Kennung: `EUPL-1.2`.
+
+Die EUPL gilt in 23 Sprachfassungen gleichwertig; die verbindliche deutsche
+Fassung steht im Amtsblatt der Europaeischen Union (CELEX 32017D0863).
+
+Was das heisst: Verwenden darf das Werkzeug jeder, auch im Betrieb und auch
+kommerziell, ohne jede Pflicht. Wer eine **veraenderte Fassung weitergibt**,
+muss sie wieder unter der EUPL oder einer der im Anhang genannten Lizenzen
+offenlegen. Was mit dem Werkzeug **erzeugt** wird, faellt nicht darunter.
+
+Fassungen bis einschliesslich 2.0.1 wurden unter der MIT-Lizenz
+veroeffentlicht und bleiben unter dieser Lizenz verfuegbar.

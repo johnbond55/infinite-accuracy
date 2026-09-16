@@ -1,5 +1,16 @@
 # Änderungen
 
+## Lizenzwechsel — 16.09.2026
+
+- Lizenz von **MIT** auf **EUPL-1.2** (European Union Public Licence)
+  gewechselt. Grund: die MIT-Lizenz laesst zu, dass Ableitungen geschlossen
+  werden; das Werkzeug soll offen bleiben. Die EUPL haelt zugleich den
+  Urhebervermerk fest, liegt als verbindlicher deutscher Rechtstext vor und
+  ist zu GPL, AGPL, LGPL, MPL, EPL, OSL, CeCILL und LiLiQ kompatibel.
+- Keine Codeaenderung, keine neue Paketfassung: `version.json`,
+  `plugin.json` und `PRUEFSUMMEN.json` sind unberuehrt.
+- Fassungen bis einschliesslich 2.0.1 bleiben unter MIT verfuegbar.
+
 ## 2.0.1 — 16.09.2026
 
 ### Behoben
