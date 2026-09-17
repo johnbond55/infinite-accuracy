@@ -136,6 +136,7 @@ installieren.py       installiert und ersetzt das Paket in einem Projekt
 version.json          Version und Änderungen — daran misst die Update-Prüfung
 PRUEFSUMMEN.json      Prüfsummen aller Paketdateien
 LICENSE               EUPL-1.2 — reist mit dem Paket und wird mitinstalliert
+EUPL-1.2-DE.txt       amtliche deutsche Fassung der EUPL — reist mit und wird mitinstalliert
 skills/kaskade/       SKILL.md, abnahme.py, journal.py, konfig.py, pruefstand.py
 skills/kaskade/doku/  warum jeder Baustein so gebaut ist
 skills/zettel/        Zettelkasten: SKILL.md, zettel.py

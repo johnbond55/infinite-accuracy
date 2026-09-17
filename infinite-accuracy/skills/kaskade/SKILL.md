@@ -136,7 +136,7 @@ python pruefstand.py --rot    # STATUS: ESKALATION — muss fehlschlagen
 | `abnahme.py` | führt Prüfbefehle aus, vergleicht, zählt |
 | `journal.py` | registriert und löscht temporäre Arbeitsdateien |
 | `konfig.py` | Konfiguration: Ziele, Zahlen, Schalter, Ablageorte; ohne sie läuft alles lokal |
-| `pruefstand.py` | fährt Schranken, Hooks, Zettelkasten und Installer gegen Proben mit bekanntem Ausgang |
+| `pruefstand.py` | fährt Schranken, Hooks, Zettelkasten und Installer gegen Proben mit bekanntem Ausgang; im Quell-Repository auch den Paketordner gegen seinen Tag |
 | `doku/` | warum alles so gebaut ist, je Modul eine Datei |
 | `../zettel/` | Zettelkasten: ablegen, suchen, lesen |
 | `../../agents/ia-ausfuehrer.md` | `model: sonnet` — führt aus, belegt jeden Schritt |
@@ -144,3 +144,4 @@ python pruefstand.py --rot    # STATUS: ESKALATION — muss fehlschlagen
 | `../../agents/ia-pruefer.md` | `model: haiku` — nimmt ab, Skript hat Vorrang |
 | `../../hooks/` | `regelschub`, `ernte`, `wiedervorlage`, `haertung`, `nachlauf`, `gedaechtnis`, `aktualisierung` |
 | `../../installieren.py` | installiert und ersetzt das Paket in einem Projekt |
+| `LICENSE`, `EUPL-1.2-DE.txt` | Lizenz EUPL-1.2, englisch und amtlich deutsch — in der Paketwurzel, im Projekt unter `.claude/infinite-accuracy/paket/` |

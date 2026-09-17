@@ -1,11 +1,12 @@
 {
-  "version": "2.0.2",
-  "datum": "2026-09-16",
+  "version": "2.0.3",
+  "datum": "2026-09-17",
   "aenderungen": [
-    "Lizenz von MIT auf EUPL-1.2 gewechselt. Diese Fassung liefert den Wechsel erstmals aus: LICENSE reist im Paket mit und wird nach .claude/infinite-accuracy/paket/LICENSE installiert",
-    "In 2.0.1 fehlte der Lizenztext. Der Wechsel kam erst nach dem Tag v2.0.1 in den Zweig, und die Update-Routine laedt das Archiv des Tags - erreichbar wird er deshalb nur mit einer neuen Fassung",
-    "plugin.json traegt das Feld license. Die amtliche deutsche Fassung liegt als EUPL-1.2-DE.txt im Repository und ist in .gitattributes von der LF-Normalisierung ausgenommen",
-    "Keine Codeaenderung gegenueber 2.0.1: Hooks, Skills, Agenten, Vorlagen und Doku sind unveraendert"
+    "Neue Schranke im Pruefstand: Im Quell-Repository vergleicht eine Gruppe den Paketordner Byte fuer Byte mit dem Archiv des Tags v<version>. Wird eine Paketdatei nach dem Tag geaendert und die Version stehen gelassen, ist der Pruefstand rot - bisher erreichte so eine Aenderung kein Projekt, und die Update-Pruefung schwieg",
+    "Vor dem Tag gilt eine angehobene Version als vorbereitet. Nach git tag laeuft der Pruefstand ein zweites Mal und prueft das Archiv des Tags gegen seine eigenen Pruefsummen. In einer Projektinstallation wird die Gruppe uebersprungen",
+    "EUPL-1.2-DE.txt reist im Paket mit (amtliche deutsche Fassung, byte-gleich mit der Wurzel) und wird nach .claude/infinite-accuracy/paket/ installiert. Proben pruefen den Gleichstand von Wurzel und Paket, die amtliche Pruefsumme und die Ausnahme von der Zeilenend-Normalisierung",
+    "SKILL.md und doku/README.md nennen die Lizenz und den Ort der Lizenztexte im Projekt",
+    "Pruefstand: Scheitert die Erstinstallation in der Installer-Probe, endet die Gruppe mit einer benannten roten Probe statt mit einem Traceback"
   ],
-  "groesse_bytes": 303080
+  "groesse_bytes": 338692
 }

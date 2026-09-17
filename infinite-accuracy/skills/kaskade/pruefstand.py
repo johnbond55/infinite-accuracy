@@ -5,7 +5,8 @@
 Faehrt die Schranken dieses Pakets gegen Proben, deren Ausgang vorher
 feststeht — in beiden Richtungen: was durchgehen muss und was blocken muss.
 Verdichtung, Zettelkasten und Installer werden Ende-zu-Ende in temporaeren
-Ordnern geprobt.
+Ordnern geprobt. Im Quell-Repository vergleicht eine Gruppe den Paketordner
+mit dem Archiv des Tags v<version.json> - lokal per git, nur lesend.
 
 Begruendungen und Fallen: doku/pruefstand.md
 
@@ -14,11 +15,14 @@ Aufruf:  pruefstand.py          alle Proben
                                 dieser Lauf muss fehlschlagen
 Exit:    0 = alle bestanden · 1 = mindestens eine Probe durchgefallen
 """
+import hashlib
+import io
 import json
 import os
 import shutil
 import subprocess
 import sys
+import tarfile
 import tempfile
 from pathlib import Path
 
@@ -30,6 +34,8 @@ import journal                                                    # noqa: E402
 import konfig                                                     # noqa: E402
 
 PROBE_ZIEL = "probeziel"
+EUPL_DE_SHA256 = "208705beb6df6c418b821f73b2cf192d9d5c6837a1a59391a261c7abe2fb0dce"
+LIZENZTEXTE = ("LICENSE", "EUPL-1.2-DE.txt")
 konfig.setzen_fuer_proben({PROBE_ZIEL: {"ssh": "nutzer@rechner.invalid",
                                         "keys": [], "temp": "/tmp/ia-"}})
 
@@ -483,6 +489,10 @@ def _aktualisierungsproben():
 
         rc = inst.ausfuehren(kopie, projekt, "erstinstallation", ohne_abnahme=True, ausgabe=still)
         p.append(("Erstinstallation laeuft durch", rc == 0, True, "Regelfall"))
+        if rc != 0:
+            p.append(("Installer-Folgeproben (abgebrochen: Erstinstallation gescheitert)",
+                      False, True, "zuerst die Probe 'Pruefsummen des Pakets stimmen' beheben"))
+            return p
         p.append(("Hook liegt am Zielort",
                   os.path.isfile(os.path.join(projekt, ".claude", "hooks", "ernte.py")), True,
                   "hooks/ gehoert nach .claude/hooks/"))
@@ -518,6 +528,289 @@ def _aktualisierungsproben():
                   True, "Pruefsummen schuetzen vor halben Downloads"))
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
+    return p
+
+
+def _git(ordner, *argumente):
+    """(rc, stdout als Bytes, stderr gekuerzt) - lokal, ohne Netz, ohne Sperrdateien."""
+    env = dict(os.environ)
+    env["GIT_OPTIONAL_LOCKS"] = "0"
+    env["GIT_TERMINAL_PROMPT"] = "0"
+    env["LC_ALL"] = "C"
+    try:
+        p = subprocess.run(["git", "--no-optional-locks", "-c", "core.fsmonitor=false",
+                            "-C", ordner] + list(argumente),
+                           stdin=subprocess.DEVNULL, stdout=subprocess.PIPE,
+                           stderr=subprocess.PIPE, env=env, timeout=120)
+        return p.returncode, p.stdout, _text(p.stderr)[:160]
+    except Exception as ex:                                       # noqa: BLE001
+        return -1, b"", str(ex)[:160]
+
+
+def _text(roh):
+    return roh.decode("utf-8", "replace").strip()
+
+
+def _version(text):
+    """(x, y, z) nur fuer genau drei ASCII-Zifferngruppen, sonst None."""
+    teile = str(text).split(".")
+    if len(teile) != 3 or not all(t.isascii() and t.isdigit() for t in teile):
+        return None
+    return tuple(int(t) for t in teile)
+
+
+def _staende(tags):
+    """{(x, y, z): tagname} fuer die Release-Tags v<x.y.z>; Tags mit Zusatz zaehlen nicht."""
+    return {_version(t[1:]): t for t in sorted(tags)
+            if t.startswith("v") and _version(t[1:]) is not None}
+
+
+def _tagurteil(version, tags, erster):
+    """(bestanden, zustand): getaggt | vorbereitet | Grund fuer Rot."""
+    eigen = _version(version)
+    if eigen is None:
+        return False, "version.json traegt keine gueltige Version: %r" % (version,)
+    if "v" + version in tags:
+        return True, "getaggt"
+    staende = _staende(tags)
+    if eigen in staende:
+        return False, "der Tag heisst %s, geladen wird v%s" % (staende[eigen], version)
+    if not staende:
+        if erster:
+            return True, "vorbereitet"
+        return False, "keine Release-Tags im Klon - git fetch --tags"
+    juengster = max(staende)
+    if eigen > juengster:
+        return True, "vorbereitet"
+    return False, ("ohne Tag und nicht neuer als %s - version.json und plugin.json anheben"
+                   % staende[juengster])
+
+
+def _bytes(pfad):
+    try:
+        with open(pfad, "rb") as f:
+            return f.read()
+    except Exception:                                             # noqa: BLE001
+        return None
+
+
+def _baum_lesen(inst, paket):
+    """Paketdateien so, wie der Installer sie auswaehlt, dazu PRUEFSUMMEN.json; None = unlesbar."""
+    rels = list(inst.paket_dateien(paket))
+    if os.path.isfile(os.path.join(paket, inst.MANIFEST)):
+        rels.append(inst.MANIFEST)
+    return {rel: _bytes(os.path.join(paket, *rel.split("/"))) for rel in rels}
+
+
+def _abweichungen(archiv, baum):
+    fehler = []
+    for rel in sorted(set(archiv) | set(baum)):
+        if rel not in baum:
+            fehler.append("nur im Tag: %s" % rel)
+        elif baum[rel] is None:
+            fehler.append("unlesbar: %s" % rel)
+        elif rel not in archiv:
+            fehler.append("nicht im Tag: %s" % rel)
+        elif archiv[rel] != baum[rel]:
+            fehler.append("abweichend: %s" % rel)
+    return fehler
+
+
+def _archiv(wurzel, ref, praefix):
+    """({rel: bytes}, fehler) - der Paketordner so, wie git archive ihn ausliefert."""
+    rc, roh, fehler = _git(wurzel, "archive", "--format=tar", ref, "--", praefix or ".")
+    if rc != 0:
+        return {}, "archive rc %d: %s" % (rc, fehler)
+    dateien = {}
+    try:
+        with tarfile.open(fileobj=io.BytesIO(roh), mode="r:") as tar:
+            for m in tar.getmembers():
+                if m.isfile() and m.name.startswith(praefix):
+                    dateien[m.name[len(praefix):]] = tar.extractfile(m).read()
+    except Exception as ex:                                       # noqa: BLE001
+        return {}, "Archiv unlesbar: %s" % ex
+    if not dateien:
+        return {}, "Archiv ohne Paketdateien"
+    return dateien, ""
+
+
+def _archiv_pruefsummen(inst, archiv):
+    """Das Archiv in einen Temp-Ordner legen und so pruefen, wie der Installer prueft."""
+    if not archiv:
+        return ["kein Archiv"]
+    tmp = tempfile.mkdtemp(prefix="ia-tagarchiv-")
+    try:
+        for rel, inhalt in archiv.items():
+            teile = rel.split("/")
+            if not rel or rel.startswith("/") or ":" in rel or ".." in teile:
+                return ["unzulaessiger Pfad im Archiv: %s" % rel]
+            pfad = os.path.join(tmp, *teile)
+            os.makedirs(os.path.dirname(pfad), exist_ok=True)
+            with open(pfad, "wb") as f:
+                f.write(inhalt)
+        return inst.manifest_pruefen(tmp)
+    except Exception as ex:                                       # noqa: BLE001
+        return ["Archiv nicht pruefbar: %s" % ex]
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+
+def _gitordner_ueber(pfad):
+    pfad = os.path.abspath(pfad)
+    while True:
+        if os.path.exists(os.path.join(pfad, ".git")):
+            return True
+        oben = os.path.dirname(pfad)
+        if oben == pfad:
+            return False
+        pfad = oben
+
+
+def _tagproben():
+    """Paketordner gegen das Archiv des Tags v<version.json> - nur im Quell-Repository."""
+    p = []
+    p.append(("Tag-Urteil: getaggte Version",
+              _tagurteil("2.0.2", ["v2.0.1", "v2.0.2"], False) == (True, "getaggt"), True,
+              "danach vergleichen die Archiv-Proben Byte fuer Byte"))
+    p.append(("Tag-Urteil: angehobene Version vor dem Tag ist vorbereitet",
+              _tagurteil("2.0.3", ["v2.0.1", "v2.0.2"], False) == (True, "vorbereitet"), True,
+              "der Pruefstand laeuft vor dem Tag - das darf nicht rot sein"))
+    p.append(("Tag-Urteil: 2.0.9 ohne Tag ist neben v2.0.10 nicht vorbereitet",
+              _tagurteil("2.0.9", ["v2.0.10"], False)[0], False,
+              "ein Zeichenkettenvergleich hielte 2.0.9 fuer neuer"))
+    p.append(("Tag-Urteil: v2.0.02 ersetzt v2.0.2 nicht",
+              _tagurteil("2.0.2", ["v2.0.02"], False)[0], False,
+              "geladen wird der Tag, der genau so heisst wie die Version"))
+    p.append(("Tag-Urteil: ungueltige Version",
+              _tagurteil("2.0", [], True)[0], False, "ohne Nummer kein Tag"))
+    p.append(("Tag-Urteil: leere Tagliste in gewachsenem Repository ist nicht vorbereitet",
+              _tagurteil("2.0.3", [], False)[0], False,
+              "ein Klon ohne Tags wuerde sonst jede Aenderung durchlassen"))
+    p.append(("Tag-Urteil: erster Stand ohne Tag ist vorbereitet",
+              _tagurteil("1.0.0", [], True) == (True, "vorbereitet"), True,
+              "neues Repository mit genau einem Commit"))
+    p.append(("Tag-Urteil: Tag mit Zusatz zaehlt nicht als Release",
+              _tagurteil("2.0.2", ["v2.0.1", "v2.0.2-rc1"], False) == (True, "vorbereitet"),
+              True, "aktualisierung.py laedt nur v<x.y.z>"))
+    p.append(("Tag-Vergleich: gleicher Stand ergibt keine Abweichung",
+              _abweichungen({"a.py": b"x\n"}, {"a.py": b"x\n"}), False, "Regelfall"))
+    p.append(("Tag-Vergleich: geaenderte Paketdatei faellt auf",
+              _abweichungen({"a.py": b"x\n"}, {"a.py": b"y\n"}), True,
+              "Aenderung am Zweig ohne neue Version erreicht kein Projekt"))
+    p.append(("Tag-Vergleich: CRLF statt LF faellt auf",
+              _abweichungen({"a.txt": b"x\n"}, {"a.txt": b"x\r\n"}), True,
+              "das Archiv liefert Bytes, der Installer prueft Bytes - git diff saehe es nicht"))
+    p.append(("Tag-Vergleich: neue Paketdatei ohne Tag faellt auf",
+              _abweichungen({"a.py": b"x\n"}, {"a.py": b"x\n", "b.txt": b"z\n"}), True,
+              "der Installer nimmt jede Datei im Paketordner"))
+    p.append(("Tag-Vergleich: im Tag fehlende Datei faellt auf",
+              _abweichungen({"a.py": b"x\n", "b.txt": b"z\n"}, {"a.py": b"x\n"}), True,
+              "geloeschte Datei ohne neue Version"))
+    p.append(("Tag-Vergleich: unlesbare Datei faellt auf",
+              _abweichungen({"a.py": b"x\n"}, {"a.py": None}), True,
+              "eine gesperrte Datei darf nicht als gleich gelten"))
+
+    inst, paket = _installer_laden()
+    if inst is None:
+        p.append(("Tag-Proben (uebersprungen: kein vollstaendiges Paket)", True, True,
+                  "in einer Projektinstallation liegt weder Paketordner noch Repository"))
+        return p
+    rc_w, aus_w, err_w = _git(paket, "rev-parse", "--show-toplevel")
+    rc_p, aus_p, err_p = _git(paket, "rev-parse", "--show-prefix")
+    if rc_w != 0 or rc_p != 0:
+        if _gitordner_ueber(paket):
+            p.append(("git ist aufrufbar, wo das Paket in einem Repository liegt", False, True,
+                      "absichtlich rot: ohne git kein Tag-Vergleich, im Repository wird "
+                      "nicht still uebersprungen (%s)" % (err_w or err_p)))
+        else:
+            p.append(("Tag-Proben (uebersprungen: Paket liegt in keinem git-Repository)",
+                      True, True, "Paketkopie ohne Versionsgeschichte"))
+        return p
+    wurzel, praefix = _text(aus_w), _text(aus_p)
+
+    rc_f, aus_f, err_f = _git(paket, "ls-files", "--", inst.MANIFEST)
+    if rc_f != 0:
+        p.append(("git liest den Index des Repositorys", False, True,
+                  "ls-files rc %d: %s" % (rc_f, err_f)))
+        return p
+    if not _text(aus_f):
+        p.append(("Tag-Proben (uebersprungen: Paket wird in diesem Repository nicht verfolgt)",
+                  True, True, "die Tags eines fremden Repositorys gehoeren nicht zum Paket"))
+        return p
+
+    for name in LIZENZTEXTE:
+        oben = _bytes(os.path.join(wurzel, name))
+        unten = _bytes(os.path.join(paket, name))
+        p.append(("Lizenztext in Wurzel und Paket bytegleich: %s" % name,
+                  oben is not None and oben == unten, True,
+                  "die Wurzel zeigt GitHub, das Paket erreicht die Projekte (Wurzel %s, Paket %s)"
+                  % ("fehlt" if oben is None else "da", "fehlt" if unten is None else "da")))
+    deutsch = _bytes(os.path.join(paket, "EUPL-1.2-DE.txt"))
+    p.append(("EUPL-1.2-DE.txt im Paket ist die amtliche Fassung",
+              deutsch is not None and hashlib.sha256(deutsch).hexdigest() == EUPL_DE_SHA256,
+              True, "BOM und CRLF gehoeren zum Wortlaut; --manifest nimmt jeden Stand hin"))
+    rc_a, aus_a, err_a = _git(paket, "check-attr", "text", "--", "EUPL-1.2-DE.txt")
+    p.append(("EUPL-1.2-DE.txt ist von der Zeilenend-Normalisierung ausgenommen",
+              rc_a == 0 and _text(aus_a).endswith(": text: unset"), True,
+              "ohne '-text' in .gitattributes speichert git LF und das Tag-Archiv verfehlt "
+              "die Pruefsumme (%s)" % (_text(aus_a) or err_a)))
+
+    rc_t, aus_t, err_t = _git(wurzel, "for-each-ref", "--format=%(refname)", "refs/tags/")
+    p.append(("Tagliste ist lesbar", rc_t == 0, True, "for-each-ref rc %d: %s" % (rc_t, err_t)))
+    if rc_t != 0:
+        return p
+    tags = [z[len("refs/tags/"):] for z in _text(aus_t).splitlines()
+            if z.startswith("refs/tags/")]
+    erster = False
+    if not _staende(tags):
+        rc_c, aus_c, _f = _git(wurzel, "rev-list", "--count", "HEAD")
+        rc_s, aus_s, _f = _git(wurzel, "rev-parse", "--is-shallow-repository")
+        erster = (rc_c == 0 and _text(aus_c) == "1"
+                  and rc_s == 0 and _text(aus_s) == "false")
+    try:
+        version = inst.version_lesen(paket)
+    except Exception as ex:                                       # noqa: BLE001
+        version = "unlesbar: %s" % ex
+    bestanden, zustand = _tagurteil(version, tags, erster)
+    p.append(("Version ist getaggt oder als naechstes Release vorbereitet", bestanden, True,
+              "Version %s: %s" % (version, zustand)))
+
+    baum = _baum_lesen(inst, paket)
+    eigen = _version(version)
+    aeltere = sorted(s for s in _staende(tags) if eigen is not None and s < eigen)
+    if aeltere:
+        vorgaenger = _staende(tags)[aeltere[-1]]
+        alt, fehler = _archiv(wurzel, "refs/tags/" + vorgaenger, praefix)
+        p.append(("Gegenprobe: Paketordner weicht vom Archiv des Vorgaenger-Tags ab",
+                  bool(alt) and bool(_abweichungen(alt, baum)), True,
+                  "der Vergleich muss eine echte Abweichung sehen (%s %s)"
+                  % (vorgaenger, fehler or "ohne Unterschied")))
+    leer, fehler = _archiv(wurzel, "HEAD", praefix + "gibtsnicht-ia-probe/")
+    p.append(("Gegenprobe: Archiv eines fehlenden Pfads meldet einen Fehler",
+              bool(fehler) and not leer, True,
+              "sonst gilt ein leeres Archiv als gueltiger Stand"))
+
+    if zustand != "getaggt":
+        p.append(("Archiv-Proben (uebersprungen: Version noch ohne Tag)", True, True,
+                  "nach git tag v<version> den Pruefstand erneut fahren, erst dann pushen"))
+        return p
+    archiv, fehler = _archiv(wurzel, "refs/tags/v" + version, praefix)
+    p.append(("Tag der Version liefert ein Archiv mit Paketdateien", not fehler, True,
+              "aktualisierung.py laedt genau dieses Archiv (%s)" % fehler))
+    try:
+        tagversion = json.loads(archiv["version.json"].decode("utf-8")).get("version")
+    except Exception:                                             # noqa: BLE001
+        tagversion = None
+    p.append(("Archiv des Tags traegt die Version aus version.json", tagversion == version,
+              True, "Zweig und Tag muessen dieselbe Fassung meinen (Tag: %r)" % (tagversion,)))
+    fehler = _archiv_pruefsummen(inst, archiv)
+    p.append(("Archiv des Tags erfuellt seine eigenen Pruefsummen", not fehler, True,
+              "sonst bricht das Update in jedem Projekt ab (%d: %s)"
+              % (len(fehler), "; ".join(fehler[:5]))))
+    fehler = _abweichungen(archiv, baum)
+    p.append(("Paketordner gleicht Byte fuer Byte dem Archiv des Tags", not fehler, True,
+              "Paketdatei geaendert ohne neue Version - version.json und plugin.json "
+              "anheben (%d: %s)" % (len(fehler), "; ".join(fehler[:5]))))
     return p
 
 
@@ -591,6 +884,7 @@ def proben():
     p.extend(_hookproben())
     p.extend(_verdichtungsproben())
     p.extend(_zettelproben())
+    p.extend(_tagproben())
     p.extend(_aktualisierungsproben())
 
     for befehl in ["rm -f /tmp/x", "mv a b", "cp a b", "touch x", "mkdir x",

@@ -1,5 +1,47 @@
 # Änderungen
 
+## 2.0.3 — 17.09.2026
+
+### Neu
+
+- **Schranke gegen Änderungen ohne neue Fassung.** Im Quell-Repository
+  vergleicht der Prüfstand den Paketordner Byte für Byte mit dem Archiv des
+  Tags `v<version>` (`git archive`, lokal, nur lesend). Wird eine Paketdatei
+  nach dem Tag geändert und die Version stehen gelassen, ist er rot. Bisher
+  erreichte so eine Änderung kein Projekt, und die Update-Prüfung schwieg —
+  so blieb in 2.0.1 der Lizenzwechsel aus.
+- Vor dem Tag gilt eine angehobene Version als vorbereitet, die Archiv-Proben
+  sind dann übersprungen. **Nach `git tag` läuft der Prüfstand ein zweites
+  Mal**, vor dem Push (`doku/aktualisierung.md`). Dabei prüft er auch, dass
+  das Archiv des Tags seine eigenen Prüfsummen erfüllt.
+- In einer Projektinstallation, in einer Paketkopie ohne Repository und in
+  einem fremden Repository ist die Gruppe übersprungen. Liegt das Paket in
+  einem Repository und `git` fehlt, ist sie rot.
+- **Neu im Paket: `EUPL-1.2-DE.txt`**, die amtliche deutsche Fassung,
+  bytegleich mit der Wurzel. Sie wird nach `.claude/infinite-accuracy/paket/`
+  installiert; eine Projektinstallation wächst um eine Datei (mit der Ausnahme
+  `skills/einrichten` von 40 auf 41, ohne sie von 41 auf 42). Proben prüfen
+  den Gleichstand von Wurzel und Paket, die amtliche Prüfsumme und die Ausnahme
+  von der Zeilenend-Normalisierung.
+- `SKILL.md` und `doku/README.md` nennen die Lizenz und den Ort der
+  Lizenztexte im Projekt.
+
+### Behoben
+
+- **Traceback statt Urteil.** Scheiterte im Prüfstand schon die
+  Erstinstallation der Installer-Probe — etwa bei veraltetem Manifest —,
+  schrieben die Folgeproben in ein nicht installiertes Projekt, und der Lauf
+  endete mit `FileNotFoundError`. Jetzt endet die Gruppe mit der roten Probe
+  „Installer-Folgeproben (abgebrochen: Erstinstallation gescheitert)".
+
+### Geändert
+
+- Prüfstand: im Quell-Repository 185 Proben vor dem Tag und 188 danach, in
+  einer Projektinstallation 168 (bisher 162 und 153). Die Zahl hängt vom
+  Zustand des Repositorys ab.
+- `doku/pruefstand.md` und `doku/aktualisierung.md` beschreiben die
+  Tag-Proben und den neuen Ablauf beim Veröffentlichen.
+
 ## 2.0.2 — 16.09.2026
 
 ### Geaendert

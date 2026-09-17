@@ -13,7 +13,7 @@ steht hier. Wer eine Zeile ändert, liest vorher den zugehörigen Abschnitt.
 | `journal.py` | [journal.md](journal.md) | die vier Schranken, Metazeichen, `shlex.quote`, Verzeichnisgrenze, MSYS-Falle |
 | `abnahme.py` | [abnahme.md](abnahme.md) | Read-only-Heuristik, Lookbehind, Verbliste, Vergleichsarten, gebundener Wortlaut |
 | `konfig.py` | [konfig.md](konfig.md) | Zahlen, Schalter, Ablageorte, unbekannte Namen |
-| `pruefstand.py` | [pruefstand.md](pruefstand.md) | beide Prüfrichtungen, `--rot`, Nebenwirkungen nur in Temp-Ordnern |
+| `pruefstand.py` | [pruefstand.md](pruefstand.md) | beide Prüfrichtungen, `--rot`, Nebenwirkungen nur in Temp-Ordnern, Tag-Proben |
 | `../../hooks/regelschub.py` | [regelschub.md](regelschub.md) | replace statt format, usage-Zeile statt Zeichen, Ablage-Auftrag |
 | `../../hooks/ernte.py` | [ernte.md](ernte.md) | Riegel und Anweisung, Inode statt Tausch, Zeilentrennung, Tilgungsmuster |
 | `../../hooks/wiedervorlage.py`, `haertung.py` | [wiedervorlage.md](wiedervorlage.md) | zwei Wege je Quelle, abgekoppelte Härtung, Nachernte, Budgets |
@@ -23,6 +23,7 @@ steht hier. Wer eine Zeile ändert, liest vorher den zugehörigen Abschnitt.
 | — | [verdichtung.md](verdichtung.md) | wie die Verdichtung gesteuert wird und worauf das beruht |
 | — | [hintergrund.md](hintergrund.md) | warum delegiert und maschinell abgenommen wird |
 | `SKILL.md` | — | trägt seine Erklärung selbst; es ist Anleitung, nicht Code |
+| `LICENSE`, `EUPL-1.2-DE.txt` | — | Lizenz EUPL-1.2, englische und amtliche deutsche Fassung, gleichwertig (Art. 13); im Projekt unter `.claude/infinite-accuracy/paket/` |
 
 Die Agenten `ia-ausfuehrer`, `ia-leser` und `ia-pruefer` sind Prompts, kein
 Programm, und erklären sich selbst.

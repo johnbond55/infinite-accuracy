@@ -1,6 +1,10 @@
 {
-  "version": "2.0.2",
+  "version": "2.0.3",
   "dateien": {
+    "EUPL-1.2-DE.txt": {
+      "sha256": "208705beb6df6c418b821f73b2cf192d9d5c6837a1a59391a261c7abe2fb0dce",
+      "bytes": 15282
+    },
     "LICENSE": {
       "sha256": "73b15da7a9994a24a5afbd9377c80db2c0128524aaff1cd693525d306cb68e6d",
       "bytes": 13852
@@ -10,11 +14,11 @@
       "bytes": 19544
     },
     "version.json": {
-      "sha256": "c8a0d58bbd286872ce2ba89d3de73701194763dbd58eb8fde19978125d2302b3",
-      "bytes": 771
+      "sha256": "ec848dfa0207f74186b9fd9b98fcdcb86a6503c3ac4ebef3d6ed7fd3b305d925",
+      "bytes": 1194
     },
     ".claude-plugin/plugin.json": {
-      "sha256": "701a1cbd3c6df034fb9190f37d384893e97a325b059f97eb11540cd5fefa8818",
+      "sha256": "1b6500201d9740416806062cd853b10dbb5f86a5d7a52a4d3138ea3c686329d2",
       "bytes": 285
     },
     "agents/ia-ausfuehrer.md": {
@@ -66,8 +70,8 @@
       "bytes": 3035
     },
     "skills/kaskade/SKILL.md": {
-      "sha256": "5b73261a4d2ee75a94a4b39c5a03e266d8f58eaebf96314188e50f775a9422c5",
-      "bytes": 6968
+      "sha256": "0c04f2fecf3bc983c36fa16fe719e3594e3769eccc74c6d57f723033272cbb0e",
+      "bytes": 7184
     },
     "skills/kaskade/abnahme.py": {
       "sha256": "d1984c85f61b3e01562ea4b44b1c5b1451f990d257de055634693ff347f4778b",
@@ -82,20 +86,20 @@
       "bytes": 9143
     },
     "skills/kaskade/pruefstand.py": {
-      "sha256": "94cd9df09cab870f8821e630de51d92befb6465499161019ee6fb146e7742644",
-      "bytes": 33561
+      "sha256": "3e880f7356764dd46be3765c1bf719ea067c5345ea7f449f55be065f5203c9de",
+      "bytes": 48017
     },
     "skills/kaskade/doku/README.md": {
-      "sha256": "70bd5b1bbc839b81b02088ff23c81b8e5638c9e03d29c2eb6e25273e87a28fe3",
-      "bytes": 2621
+      "sha256": "5575dc2effedc9606e42cd43066d812dc2a4822fb9cbe7e6bf6c72cb2f367161",
+      "bytes": 2808
     },
     "skills/kaskade/doku/abnahme.md": {
       "sha256": "2edb090572ba1a4b91f44854fba078cf8dd97dc6b56fda27f8326c155e35ac90",
       "bytes": 6113
     },
     "skills/kaskade/doku/aktualisierung.md": {
-      "sha256": "a798d8f2ecd4c0a4a2c648100dce9c19342ad3938e03d2890e137fb2fe2f23b9",
-      "bytes": 3647
+      "sha256": "b972aea5fc3fe339535fbad56023002069a3c93c4b55afc4f2063ccafb1636ff",
+      "bytes": 4769
     },
     "skills/kaskade/doku/ernte.md": {
       "sha256": "79d18b4e48a7e43669e56632204d0bd9069c8eb5863370e2b45bf583a95b6ac1",
@@ -118,8 +122,8 @@
       "bytes": 1461
     },
     "skills/kaskade/doku/pruefstand.md": {
-      "sha256": "927a78d7a9e27a00aad471e4d93a53f9fd1aa92d967398d9842d89f4daeea315",
-      "bytes": 3644
+      "sha256": "a5585a652c801738d555da84b62090c5f19b3a2683ced2b39c2e11a2d575fcce",
+      "bytes": 7993
     },
     "skills/kaskade/doku/regelschub.md": {
       "sha256": "b5359853cce5bb427ed76e068c27670a8f9c110ee752f67e41babfc88309db50",
