@@ -1,5 +1,5 @@
 {
-  "version": "2.0.3",
+  "version": "2.0.4",
   "dateien": {
     "EUPL-1.2-DE.txt": {
       "sha256": "208705beb6df6c418b821f73b2cf192d9d5c6837a1a59391a261c7abe2fb0dce",
@@ -10,15 +10,15 @@
       "bytes": 13852
     },
     "installieren.py": {
-      "sha256": "6071e37cd3ec9711d9e90638dcb9ec8e2cbfc74ed412528771e463a6e4262b80",
-      "bytes": 19544
+      "sha256": "66ac2b3afe3db71508a8f6f76e55ce12f7d627211a00a088896ec7cde2eb339c",
+      "bytes": 19548
     },
     "version.json": {
-      "sha256": "ec848dfa0207f74186b9fd9b98fcdcb86a6503c3ac4ebef3d6ed7fd3b305d925",
-      "bytes": 1194
+      "sha256": "1c54225931a639ec92317f2e2d767b8d98e6edd12ed32fe6d4593ecb0d26c597",
+      "bytes": 1537
     },
     ".claude-plugin/plugin.json": {
-      "sha256": "1b6500201d9740416806062cd853b10dbb5f86a5d7a52a4d3138ea3c686329d2",
+      "sha256": "07a4d02518f5f232016df23c7e7148de7b9801909dd12ac28e4f3ae02b63d056",
       "bytes": 285
     },
     "agents/ia-ausfuehrer.md": {
@@ -34,16 +34,16 @@
       "bytes": 1719
     },
     "hooks/aktualisierung.py": {
-      "sha256": "6626f20d566edffd7d7ceb2d007bf256fd68a2b54d8449f186821f0860926db5",
-      "bytes": 10750
+      "sha256": "3952e1c88e299b5a54b2bcba98b68e7b99d97c6326b0806080f4cecdce9caf84",
+      "bytes": 10762
     },
     "hooks/ernte.py": {
-      "sha256": "8ee9097d487b341bdd4bb739413ad2ab6f068c1249b04fe70be1e3268a44eabf",
-      "bytes": 28742
+      "sha256": "bc5a1a3e28c7ddc2fe3d8e36ba97269ce12a70dd41cc71224e0897b6860b7145",
+      "bytes": 28746
     },
     "hooks/gedaechtnis.py": {
-      "sha256": "ef64f72d34139e344ddcbc73c85b7bc8a48f996235b5afa3a227141cca74f861",
-      "bytes": 14460
+      "sha256": "6f18300941093cfd49dbd1306ef154137b14ec5cfbf22832aa68a27da5c05fbc",
+      "bytes": 21537
     },
     "hooks/haertung.py": {
       "sha256": "ad126e106342d4835ca319134d188226c7c3be819fa373a3d673f499bd40865c",
@@ -62,8 +62,8 @@
       "bytes": 8723
     },
     "hooks/wiedervorlage.py": {
-      "sha256": "3b3010437a5266a84af26c893c04eb5289f5a4c26741d0094a229276f5618a89",
-      "bytes": 10311
+      "sha256": "c486e66db5062d660c69d25e85bef1251b510f6428de704e520be5645eec2ceb",
+      "bytes": 10315
     },
     "skills/einrichten/SKILL.md": {
       "sha256": "67b1641b195c424231a8fa387cc8dccbbec142d4d42651d6eedea4ebf9ad2473",
@@ -74,28 +74,28 @@
       "bytes": 7184
     },
     "skills/kaskade/abnahme.py": {
-      "sha256": "d1984c85f61b3e01562ea4b44b1c5b1451f990d257de055634693ff347f4778b",
-      "bytes": 6807
+      "sha256": "90ec414eb680447303c120fbcf85294bc228340e4143eea9786e81042afe9879",
+      "bytes": 6811
     },
     "skills/kaskade/journal.py": {
       "sha256": "e35c5ccd89a612c554b9201118f2d3f87bc4230c90e325d0b6318f14663b772b",
       "bytes": 8994
     },
     "skills/kaskade/konfig.py": {
-      "sha256": "10bbc1e87e097d5b50f84a3add97c81653f5b9ebf0231cc8405ed63739571c54",
-      "bytes": 9143
+      "sha256": "1f364f123a0b05297cae8e434ed8a8ff09b9fb59b629f0b3358216034c3a7b75",
+      "bytes": 9258
     },
     "skills/kaskade/pruefstand.py": {
-      "sha256": "3e880f7356764dd46be3765c1bf719ea067c5345ea7f449f55be065f5203c9de",
-      "bytes": 48017
+      "sha256": "2d336df1402da077d8b3bdac92536df608a6f8c35dfa1832ac4f0eb253f13e5d",
+      "bytes": 67710
     },
     "skills/kaskade/doku/README.md": {
       "sha256": "5575dc2effedc9606e42cd43066d812dc2a4822fb9cbe7e6bf6c72cb2f367161",
       "bytes": 2808
     },
     "skills/kaskade/doku/abnahme.md": {
-      "sha256": "2edb090572ba1a4b91f44854fba078cf8dd97dc6b56fda27f8326c155e35ac90",
-      "bytes": 6113
+      "sha256": "d4f867dac507f8d5cafbbd40b5b4355d14d88ee286e4d7380ddd735b7c0daf2b",
+      "bytes": 6228
     },
     "skills/kaskade/doku/aktualisierung.md": {
       "sha256": "b972aea5fc3fe339535fbad56023002069a3c93c4b55afc4f2063ccafb1636ff",
@@ -106,8 +106,8 @@
       "bytes": 4972
     },
     "skills/kaskade/doku/gedaechtnis.md": {
-      "sha256": "eb52f92acca358145cff72900c0372047084fa341a22f1923bfd410d35145a91",
-      "bytes": 3271
+      "sha256": "c7f3145ff0c88b8c60ba4db09574aa8e7dbd3d1bbb296338dbd9f4e0380db6ad",
+      "bytes": 6153
     },
     "skills/kaskade/doku/hintergrund.md": {
       "sha256": "8c0feb956d27009cc25908778d75574b918126776ed6244b9dd3e6e09484ad0b",
@@ -118,12 +118,12 @@
       "bytes": 7812
     },
     "skills/kaskade/doku/konfig.md": {
-      "sha256": "a699eccf49a0f6212c2438bfde1f93c252a45a92c22634be24fad3671501b32e",
-      "bytes": 1461
+      "sha256": "438e2d52bb79195da1a7af1c8bdee1cf74adc997e931f62b9ce734b310ed402f",
+      "bytes": 3134
     },
     "skills/kaskade/doku/pruefstand.md": {
-      "sha256": "a5585a652c801738d555da84b62090c5f19b3a2683ced2b39c2e11a2d575fcce",
-      "bytes": 7993
+      "sha256": "e3fa98b3dfab7c10750416c34cfe66e8abdd573bb9f2eae195e6873431dc16aa",
+      "bytes": 10288
     },
     "skills/kaskade/doku/regelschub.md": {
       "sha256": "b5359853cce5bb427ed76e068c27670a8f9c110ee752f67e41babfc88309db50",
@@ -146,8 +146,8 @@
       "bytes": 4274
     },
     "skills/zettel/zettel.py": {
-      "sha256": "3a1662794391d8f238314f80c789300be87af3eab08aa6f4cdeee2f5f0769eed",
-      "bytes": 48899
+      "sha256": "6d3368b4c5e02a3bf9d181b1f506dccf4b195d15d459fac428a74d4ab37f8910",
+      "bytes": 49023
     },
     "vorlagen/einstellungen.beispiel.json": {
       "sha256": "7feee37393d0b31b77c691549630a0fc0095ef8889e3e9c92c97c74f26ff4ac8",
@@ -166,8 +166,8 @@
       "bytes": 792
     },
     "vorlagen/register-texte.beispiel.json": {
-      "sha256": "b890f93ab3ba8512447e823c8748acfd020c47b8a9af8d9c090c441f9582b39c",
-      "bytes": 219
+      "sha256": "0276dcfab59e90c168909077a33453b49ca4fe7be44ceb930365dc5c1a6e3d97",
+      "bytes": 528
     },
     "vorlagen/ziele.beispiel.json": {
       "sha256": "dc96cedac7208700c900b1a5d8e9db702e22e6038bc46649a4ec9287bd445c94",

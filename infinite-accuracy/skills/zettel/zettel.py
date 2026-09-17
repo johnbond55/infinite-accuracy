@@ -155,7 +155,7 @@ def journal_pagename(p) -> str:
 def _index_link(index_rel: str, target: str, label: str, section: str) -> None:
     """Idempotent: Wikilink auf die Uebersichtsseite haengen, falls noch nicht da."""
     p = ZK / index_rel
-    content = p.read_text(encoding="utf-8") if p.exists() else ""
+    content = p.read_text(encoding="utf-8-sig") if p.exists() else ""
     if f"[[{target}]]" in content:
         return
     add = ""
@@ -215,7 +215,7 @@ def erkenntnis_text(limit: int = 30, basis: str = "") -> str:
     p = ZK / rel
     if not p.exists():
         return ""
-    zeilen = [l for l in p.read_text(encoding="utf-8").splitlines()
+    zeilen = [l for l in p.read_text(encoding="utf-8-sig").splitlines()
               if l.strip().startswith("- ")]
     return "\n".join(zeilen[-limit:])
 
@@ -235,7 +235,7 @@ def open_reflexionen(basis: str = "") -> list:
     p = ZK / _rel(basis, "Reflexionen.md")
     if not p.exists():
         return []
-    txt = p.read_text(encoding="utf-8")
+    txt = p.read_text(encoding="utf-8-sig")
     out = []
     for m in re.finditer(r'## @(\d{4}-\d{2}-\d{2}).*?(?=\n## @|\Z)', txt, re.S):
         block, datum = m.group(0), m.group(1)
@@ -261,7 +261,7 @@ def existing_dossiers(basis: str = "") -> list:
     out = []
     for f in sorted(d.glob("*.md")):
         try:
-            erste = f.read_text(encoding="utf-8").splitlines()[0]
+            erste = f.read_text(encoding="utf-8-sig").splitlines()[0]
             out.append(erste.lstrip("# ").strip() or f.stem)
         except Exception:                                         # noqa: BLE001
             out.append(f.stem)
@@ -291,7 +291,7 @@ def dossier_sections_text(thema: str, basis: str = "") -> str:
     p = ZK / _rel(basis, f"Dossiers/{_slug(thema)}.md")
     if not p.exists():
         return ""
-    text = p.read_text(encoding="utf-8")
+    text = p.read_text(encoding="utf-8-sig")
     i0 = text.find("## Stand")
     i1 = text.find("## Ressourcen")
     if i1 == -1:
@@ -306,14 +306,14 @@ def dossier_journal_texts(thema: str, limit: int = 12, maxchars: int = 9000,
     p = ZK / _rel(basis, f"Dossiers/{_slug(thema)}.md")
     if not p.exists():
         return ""
-    text = p.read_text(encoding="utf-8")
+    text = p.read_text(encoding="utf-8-sig")
     links = re.findall(r"\[\[(Journal/[^\]|]+|Projekte/[^\]|]+?/Journal/[^\]|]+)", text)
     out = []
     for l in links[-limit:]:
         f = ZK / (l + ".md")
         if f.exists():
             try:
-                out.append(f.read_text(encoding="utf-8"))
+                out.append(f.read_text(encoding="utf-8-sig"))
             except Exception:                                     # noqa: BLE001
                 pass
     return ("\n\n---\n\n".join(out))[-maxchars:]
@@ -325,7 +325,7 @@ def dossier_write_sections(thema: str, stand: str, gesichert: str, offen: str,
     p = ZK / _rel(basis, f"Dossiers/{_slug(thema)}.md")
     if not p.exists():
         return p
-    text = p.read_text(encoding="utf-8")
+    text = p.read_text(encoding="utf-8-sig")
     i_stand = text.find("## Stand")
     i_rest = text.find("## Ressourcen")
     if i_rest == -1:
@@ -359,7 +359,7 @@ def dossier_ressource(thema: str, zeile: str, basis: str = "") -> None:
     p = ZK / _rel(basis, f"Dossiers/{_slug(thema)}.md")
     if not p.exists():
         return
-    text = p.read_text(encoding="utf-8")
+    text = p.read_text(encoding="utf-8-sig")
     m = re.search(r'(## Ressourcen\s*\n(?:.*?\n)*?)(?=\n## Besuchs-Log|\Z)', text, re.S)
     if not m:
         einschub = "## Ressourcen\n\nLinks, Zeichnungen, CAD, Tabellen zu diesem Teilaspekt.\n\n"
@@ -383,7 +383,7 @@ def dossier_ressource_notiz(thema: str, url: str, notiz: str, basis: str = "") -
     p = ZK / _rel(basis, f"Dossiers/{_slug(thema)}.md")
     if not p.exists():
         return
-    lines = p.read_text(encoding="utf-8").split("\n")
+    lines = p.read_text(encoding="utf-8-sig").split("\n")
     for i, ln in enumerate(lines):
         if url in ln and ln.lstrip().startswith("-"):
             if notiz.strip() in ln:
@@ -398,7 +398,7 @@ def dossier_ressource_zeile(thema: str, url: str, basis: str = "") -> str:
     p = ZK / _rel(basis, f"Dossiers/{_slug(thema)}.md")
     if not p.exists():
         return ""
-    for ln in p.read_text(encoding="utf-8").split("\n"):
+    for ln in p.read_text(encoding="utf-8-sig").split("\n"):
         if url in ln and ln.lstrip().startswith("-"):
             return ln.lstrip("- ").rstrip()
     return ""
@@ -409,7 +409,7 @@ def dossier_ressource_entfernen(thema: str, url: str, basis: str = "") -> None:
     p = ZK / _rel(basis, f"Dossiers/{_slug(thema)}.md")
     if not p.exists():
         return
-    lines = p.read_text(encoding="utf-8").split("\n")
+    lines = p.read_text(encoding="utf-8-sig").split("\n")
     neu = [ln for ln in lines if not (url in ln and ln.lstrip().startswith("-"))]
     if len(neu) != len(lines):
         _schreiben(p, "\n".join(neu))
@@ -417,7 +417,7 @@ def dossier_ressource_entfernen(thema: str, url: str, basis: str = "") -> None:
 
 def dossier_text(thema: str, basis: str = "") -> str:
     p = ZK / _rel(basis, f"Dossiers/{_slug(thema)}.md")
-    return p.read_text(encoding="utf-8") if p.exists() else ""
+    return p.read_text(encoding="utf-8-sig") if p.exists() else ""
 
 
 # ---------- Recall / Rueckblick ----------
@@ -428,7 +428,7 @@ def landkarte(maxchars: int = 7000, basis: str = "") -> str:
     if d.is_dir():
         for f in sorted(d.glob("*.md")):
             try:
-                t = f.read_text(encoding="utf-8")
+                t = f.read_text(encoding="utf-8-sig")
             except Exception:                                     # noqa: BLE001
                 continue
             titel = t.splitlines()[0].lstrip("# ").strip() if t else f.stem
@@ -469,7 +469,7 @@ def karte_saetze(basis: str = "", maxchars: int = 2500) -> str:
     zeilen = []
     for f in sorted(d.glob("*.md")):
         try:
-            t = f.read_text(encoding="utf-8")
+            t = f.read_text(encoding="utf-8-sig")
         except Exception:                                         # noqa: BLE001
             continue
         titel = t.splitlines()[0].lstrip("# ").strip() if t else f.stem
@@ -518,7 +518,7 @@ def fortschritt_material(maxchars: int = 7000, basis: str = "") -> str:
     if d.is_dir():
         for f in sorted(d.glob("*.md")):
             try:
-                t = f.read_text(encoding="utf-8")
+                t = f.read_text(encoding="utf-8-sig")
             except Exception:                                     # noqa: BLE001
                 continue
             titel = t.splitlines()[0].lstrip("# ").strip() if t else f.stem
@@ -548,7 +548,7 @@ def journal_recent(tage: int = 3, maxchars: int = 4000, basis: str = "") -> str:
     txt = ""
     for f in files[-tage:]:
         try:
-            txt += f.read_text(encoding="utf-8") + "\n"
+            txt += f.read_text(encoding="utf-8-sig") + "\n"
         except Exception:                                         # noqa: BLE001
             pass
     return txt[-maxchars:]
@@ -572,7 +572,7 @@ def register_eintragen(schlagworte, journal_page: str, basis: str = "") -> None:
         return
     p = ZK / _rel(basis, "Schlagwort-Register.md")
     try:
-        text = p.read_text(encoding="utf-8") if p.exists() else REGISTER_HEADER
+        text = p.read_text(encoding="utf-8-sig") if p.exists() else REGISTER_HEADER
     except Exception:                                             # noqa: BLE001
         text = REGISTER_HEADER
     lines = text.split("\n")
@@ -602,7 +602,7 @@ def register_treffer(begriffe, basis: str = "", max_seiten: int = 6) -> list:
     if not woerter:
         return []
     try:
-        text = p.read_text(encoding="utf-8")
+        text = p.read_text(encoding="utf-8-sig")
     except Exception:                                             # noqa: BLE001
         return []
     seiten = []
@@ -627,7 +627,7 @@ def register_material(begriffe, basis: str = "", maxchars: int = 7000) -> str:
         f = ZK / (pg + ".md")
         if f.exists():
             try:
-                out.append(f.read_text(encoding="utf-8"))
+                out.append(f.read_text(encoding="utf-8-sig"))
             except Exception:                                     # noqa: BLE001
                 pass
     return ("\n\n---\n\n".join(out))[-maxchars:]
@@ -665,7 +665,7 @@ def projekt_liste() -> list:
         titel = sub.name
         if rm.exists():
             try:
-                titel = rm.read_text(encoding="utf-8").splitlines()[0].lstrip("# ").strip() or sub.name
+                titel = rm.read_text(encoding="utf-8-sig").splitlines()[0].lstrip("# ").strip() or sub.name
             except Exception:                                     # noqa: BLE001
                 pass
         out.append((sub.name, titel))
@@ -679,7 +679,7 @@ def _projekt_skelett(basis: str, name: str) -> None:
     titel = name
     if rm.exists():
         try:
-            titel = (rm.read_text(encoding="utf-8").splitlines()[0]
+            titel = (rm.read_text(encoding="utf-8-sig").splitlines()[0]
                      .lstrip("# ").strip() or name)
         except Exception:                                         # noqa: BLE001
             pass
@@ -692,14 +692,14 @@ def _projekt_skelett(basis: str, name: str) -> None:
     for datei, kopf in koepfe:
         p = ZK / basis / datei
         try:
-            alt = p.read_text(encoding="utf-8") if p.exists() else ""
+            alt = p.read_text(encoding="utf-8-sig") if p.exists() else ""
         except Exception:                                         # noqa: BLE001
             continue
         if not alt.lstrip().startswith("# "):
             _schreiben(p, kopf + ("\n" + alt.lstrip("\n") if alt.strip() else ""))
     if rm.exists():
         try:
-            txt = rm.read_text(encoding="utf-8")
+            txt = rm.read_text(encoding="utf-8-sig")
         except Exception:                                         # noqa: BLE001
             return
         if (f"[[{basis}/Journal|" not in txt
@@ -725,7 +725,7 @@ def journal_portieren(thema: str, projekt: str) -> str:
     abschnitte = []
     for f in sorted(quelle_dir.glob("*/*.md")):
         try:
-            txt = f.read_text(encoding="utf-8")
+            txt = f.read_text(encoding="utf-8-sig")
         except Exception:                                         # noqa: BLE001
             continue
         if th not in txt.lower():
@@ -802,7 +802,7 @@ def reindex_links() -> None:
     dd = ZK / "Dossiers"
     for f in sorted(dd.glob("*.md")):
         try:
-            thema = f.read_text(encoding="utf-8").splitlines()[0].lstrip("# ").strip() or f.stem
+            thema = f.read_text(encoding="utf-8-sig").splitlines()[0].lstrip("# ").strip() or f.stem
         except Exception:                                         # noqa: BLE001
             thema = f.stem
         _index_link("Dossiers.md", f"Dossiers/{f.stem}", thema, "Akten")
@@ -812,7 +812,7 @@ def reindex_register() -> int:
     n = 0
     for f in sorted((ZK / "Journal").glob("*/*.md")):
         try:
-            txt = f.read_text(encoding="utf-8")
+            txt = f.read_text(encoding="utf-8-sig")
         except Exception:                                         # noqa: BLE001
             continue
         page = pagename(f)
@@ -861,7 +861,7 @@ def _kreis_check(thema: str, ergebnis, basis: str = "") -> str:
     key = f"{basis}::{thema}" if basis else thema
     datei = STATE / "kreis_state.json"
     try:
-        state = json.loads(datei.read_text(encoding="utf-8"))
+        state = json.loads(datei.read_text(encoding="utf-8-sig"))
     except Exception:                                             # noqa: BLE001
         state = {}
     hist = state.get(key, [])
@@ -1009,7 +1009,7 @@ def volltext_treffer(begriffe, basis: str = "", bekannt=(), max_seiten: int = 0)
                 or name.split("/")[-1] == "Schlagwort-Register"):
             continue
         try:
-            txt = f.read_text(encoding="utf-8")
+            txt = f.read_text(encoding="utf-8-sig")
         except Exception:                                         # noqa: BLE001
             continue
         if not any(w in txt.lower() for w in woerter):
@@ -1070,7 +1070,7 @@ def lies(ziel: str, basis: str = "") -> str:
         f = ZK / (k + ".md")
         try:
             if f.is_file() and wurzel in f.resolve().parents:
-                return f"=== {k} ===\n\n" + f.read_text(encoding="utf-8")
+                return f"=== {k} ===\n\n" + f.read_text(encoding="utf-8-sig")
         except Exception:                                         # noqa: BLE001
             continue
     name, mat = zettel_nachschlagen(ziel, basis=basis,
@@ -1118,7 +1118,7 @@ def _seiten():
 
 def _links(f):
     try:
-        txt = f.read_text(encoding="utf-8")
+        txt = f.read_text(encoding="utf-8-sig")
     except Exception:                                             # noqa: BLE001
         return set()
     return {l.strip().strip("/") for l in _LINK_RE.findall(txt)}

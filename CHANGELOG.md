@@ -1,5 +1,58 @@
 # Änderungen
 
+## 2.0.4 — 17.09.2026
+
+### Behoben
+
+- **Gedächtnisindex über der Ladegrenze.** Claude Code lädt von `MEMORY.md`
+  nur 200 Zeilen bzw. 25.000 Zeichen — unter Windows mit dem Wagenrücklauf
+  gezählt — und schneidet den Rest still ab. Im Projekt hatte der Index 236
+  Zeilen; ab Zeile 153 fehlten die hinteren „Laufenden Vorhaben" und alle
+  Verweise. `gedaechtnis.py --register` baut den Kurzindex jetzt in ein
+  Budget (190 Zeilen, 24.000 Zeichen): Regeln und Angaben zum Nutzer zuerst,
+  dann das Jüngste. Was nicht mehr als ganze Zeile passt, steht als
+  Schlagwort in seiner Rubrik, und der Kopf sagt, wie viele. Passt nicht
+  einmal jedes Schlagwort, fehlen die ältesten ganz — auch das steht im Kopf.
+- **Dateien mit BOM.** `konfig.json`, `ziele.json`, `regeln.md`,
+  `register-texte.json`, `installation.json`, `installiert.json`,
+  `settings.json` beim Installieren, die Prüfpunktdatei von `abnahme.py`, die
+  `version.json` eines Updates, Gedächtniseinträge, Destillate,
+  Rohprotokolle und die Seiten des Zettelkastens werden als `utf-8-sig`
+  gelesen. Bisher galten bei einer mit dem Windows-Editor oder PowerShell
+  gespeicherten Datei still die Vorgaben, und `abnahme.py` meldete „nicht
+  lesbar". Eine Gedächtnisdatei mit BOM stand unter „Sonstiges" und ohne
+  Beschreibung. Ein Dossier mit BOM trug im Suchlauf ein unsichtbares Zeichen
+  und die Raute im Namen, eine Projektübersicht bekam einen zweiten Kopf, und
+  das BOM eines Destillats ging in die Anweisung an die Verdichtung.
+- **Prüfstand schrieb in den echten Stand.** Die Kennmarken-Probe legte
+  `last-sid-5.json` im State-Ordner des Projekts an, im Repository unter
+  `~/.claude/infinite-accuracy/state`. Sie läuft jetzt in einer umgelenkten
+  Konfiguration; zwei Proben weisen nach, dass der echte Stand unberührt
+  bleibt. Die liegen gebliebene Datei kann gelöscht werden.
+- **Proben ohne Wirkung.** `main()` verglich nur `bool(ist) == bool(erwartet)`;
+  eine Probe mit der Erwartung `"ok"` bestand bei jeder nichtleeren Antwort.
+  Eine Erwartung, die kein Wahrheitswert ist, gilt jetzt als nicht erfüllt;
+  die betroffenen Proben vergleichen exakt.
+
+### Neu
+
+- Die Gedächtnisprüfung meldet „Kurzindex zu lang" (auch beim
+  Sitzungsstart; Ausweg `--register`) und „Kurzindex zu klein".
+  `--register` nennt Zeilen, Zeichen, Budget und die Zahl der Einträge, die
+  nur als Schlagwort stehen.
+- Einstellung `index_max_zeilen` (190). `index_max_zeichen` steht jetzt auf
+  24.000; beide werden auf die Ladegrenze gedeckelt.
+- `register-texte.json` kennt drei weitere Texte: `gekuerzt`, `weggelassen`
+  und `schlagworte`.
+
+### Geändert
+
+- Prüfstand: im Quell-Repository 220 Proben vor dem Tag und 223
+  danach, in einer Projektinstallation 202 (bisher 185, 188 und 168).
+- `doku/gedaechtnis.md`, `doku/konfig.md`, `doku/abnahme.md` und
+  `doku/pruefstand.md` beschreiben Ladegrenze, BOM, Umlenkung und die
+  strengen Erwartungen.
+
 ## 2.0.3 — 17.09.2026
 
 ### Neu

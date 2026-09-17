@@ -81,7 +81,7 @@ def paket_dateien(quelle):
 
 
 def _json_lesen(pfad):
-    with open(pfad, "r", encoding="utf-8") as f:
+    with open(pfad, "r", encoding="utf-8-sig") as f:
         return json.load(f)
 
 

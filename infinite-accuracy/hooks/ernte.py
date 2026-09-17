@@ -693,7 +693,7 @@ def verdichtungs_anweisung(kennmarke, stand, rohprotokoll=None):
     pfad = stand.get("destillat")
     if pfad and os.path.isfile(pfad):
         try:
-            with open(pfad, "r", encoding="utf-8", errors="replace") as f:
+            with open(pfad, "r", encoding="utf-8-sig", errors="replace") as f:
                 text = f.read().strip()
             grenze = _zahl("verdichtung_destillat_max", 12000)
             if len(text) > grenze:

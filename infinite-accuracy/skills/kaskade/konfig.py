@@ -4,6 +4,7 @@
 
 Alles Betriebseigene steht in <projektwurzel>/.claude/infinite-accuracy/.
 Fehlt die Konfiguration, laeuft alles rein lokal mit den Vorgaben.
+Dateien mit BOM (Windows-Editor, PowerShell) werden gelesen wie ohne.
 
 Begruendungen und Fallen: doku/konfig.md
 
@@ -55,7 +56,8 @@ VORGABEN = {
     "nachernte_fenster_tage": 7,
     "haertung_sperre_minuten": 30,
     "journal_verwaist_stunden": 24,
-    "index_max_zeichen": 12000,
+    "index_max_zeichen": 24000,
+    "index_max_zeilen": 190,
     "eintrag_monster_zeichen": 6000,
     "karte_max_zeichen": 2500,
     "erkenntnisse_in_karte": 15,
@@ -109,7 +111,7 @@ def ziele():
     geladen = {}
     if os.path.isfile(pfad):
         try:
-            with io.open(pfad, "r", encoding="utf-8") as fh:
+            with io.open(pfad, "r", encoding="utf-8-sig") as fh:
                 roh = json.load(fh)
             if isinstance(roh, dict):
                 geladen = {k: v for k, v in roh.items()
@@ -135,7 +137,7 @@ def _roh():
     geladen = {}
     if os.path.isfile(pfad):
         try:
-            with io.open(pfad, "r", encoding="utf-8") as fh:
+            with io.open(pfad, "r", encoding="utf-8-sig") as fh:
                 roh = json.load(fh)
             if isinstance(roh, dict):
                 geladen = roh
@@ -195,7 +197,7 @@ def text(datei, vorgabe="", deckel=None):
     inhalt = vorgabe
     if os.path.isfile(pfad_):
         try:
-            with io.open(pfad_, "r", encoding="utf-8") as fh:
+            with io.open(pfad_, "r", encoding="utf-8-sig") as fh:
                 inhalt = fh.read()
         except OSError as ex:
             sys.stderr.write("ia-konfig: %s nicht lesbar (%s)\n" % (pfad_, ex))
@@ -211,7 +213,7 @@ def tabelle(datei, vorgabe=None):
     if not os.path.isfile(pfad_):
         return dict(vorgabe or {})
     try:
-        with io.open(pfad_, "r", encoding="utf-8") as fh:
+        with io.open(pfad_, "r", encoding="utf-8-sig") as fh:
             roh = json.load(fh)
         if isinstance(roh, dict):
             return roh

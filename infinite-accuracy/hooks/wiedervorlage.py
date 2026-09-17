@@ -83,7 +83,7 @@ def juengste(ordner, roh):
 def lesen(eintrag, grenze):
     pfad = getattr(eintrag, "path", eintrag)
     try:
-        with open(pfad, "r", encoding="utf-8", errors="replace") as f:
+        with open(pfad, "r", encoding="utf-8-sig", errors="replace") as f:
             text = f.read().strip()
     except Exception:                                             # noqa: BLE001
         return ""

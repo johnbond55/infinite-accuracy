@@ -15,6 +15,7 @@ Aufruf:  pruefstand.py          alle Proben
                                 dieser Lauf muss fehlschlagen
 Exit:    0 = alle bestanden · 1 = mindestens eine Probe durchgefallen
 """
+import contextlib
 import hashlib
 import io
 import json
@@ -24,6 +25,7 @@ import subprocess
 import sys
 import tarfile
 import tempfile
+import time
 from pathlib import Path
 
 HIER = os.path.dirname(os.path.abspath(__file__))
@@ -36,8 +38,10 @@ import konfig                                                     # noqa: E402
 PROBE_ZIEL = "probeziel"
 EUPL_DE_SHA256 = "208705beb6df6c418b821f73b2cf192d9d5c6837a1a59391a261c7abe2fb0dce"
 LIZENZTEXTE = ("LICENSE", "EUPL-1.2-DE.txt")
-konfig.setzen_fuer_proben({PROBE_ZIEL: {"ssh": "nutzer@rechner.invalid",
-                                        "keys": [], "temp": "/tmp/ia-"}})
+PROBE_ZIELE = {PROBE_ZIEL: {"ssh": "nutzer@rechner.invalid",
+                            "keys": [], "temp": "/tmp/ia-"}}
+BOM = b"\xef\xbb\xbf"
+konfig.setzen_fuer_proben(PROBE_ZIELE)
 
 
 def _scratch():
@@ -94,6 +98,69 @@ def _hook_prozess(pfad, eingabe, umgebung):
         return -1, "", str(ex)
 
 
+@contextlib.contextmanager
+def _konfig_umgelenkt(ordner):
+    """Konfiguration fuer die Dauer des Blocks aus ordner - im Pruefstand und in Hook-Prozessen."""
+    alt = os.environ.get("IA_KONFIG")
+    os.environ["IA_KONFIG"] = ordner
+    konfig.zuruecksetzen()
+    try:
+        yield
+    finally:
+        if alt is None:
+            os.environ.pop("IA_KONFIG", None)
+        else:
+            os.environ["IA_KONFIG"] = alt
+        konfig.zuruecksetzen()
+        konfig.setzen_fuer_proben(PROBE_ZIELE)
+
+
+def _datei_zustand(pfad):
+    """(mtime_ns, Groesse, Inhalt) oder None - Beleg, dass eine Datei unberuehrt bleibt."""
+    try:
+        st = os.stat(pfad)
+        with open(pfad, "rb") as f:
+            return st.st_mtime_ns, st.st_size, f.read()
+    except OSError:
+        return None
+
+
+def _liegt_unter(pfad, ordner):
+    try:
+        a = os.path.normcase(os.path.realpath(pfad))
+        b = os.path.normcase(os.path.realpath(ordner))
+        return os.path.commonpath([a, b]) == b
+    except ValueError:
+        return False
+
+
+def _bytes_schreiben(pfad, inhalt):
+    os.makedirs(os.path.dirname(pfad), exist_ok=True)
+    with open(pfad, "wb") as f:
+        f.write(inhalt)
+
+
+def _skript(pfad, *argumente):
+    """(rc, Ausgabe) eines Skripts im eigenen Prozess, ohne Eingabe."""
+    env = dict(os.environ)
+    env["PYTHONIOENCODING"] = "utf-8"
+    try:
+        p = subprocess.run([sys.executable, "-X", "utf8", pfad] + list(argumente),
+                           stdin=subprocess.DEVNULL, stdout=subprocess.PIPE,
+                           stderr=subprocess.STDOUT, encoding="utf-8", errors="replace",
+                           env=env, timeout=120)
+        return p.returncode, p.stdout
+    except Exception as ex:                                       # noqa: BLE001
+        return -1, str(ex)
+
+
+def _erfuellt(ist, soll, rot=False):
+    """Erwartungen sind Wahrheitswerte - alles andere gilt als nicht erfuellt."""
+    if not isinstance(soll, bool):
+        return False
+    return bool(ist) == (soll != rot)
+
+
 def _konfigproben():
     """Proben fuer den Konfigurationszugang."""
     p = []
@@ -121,6 +188,34 @@ def _konfigproben():
     p.append(("Tabellenvorgabe greift",
               konfig.tabelle("gibtsnicht.json", vorgabe={"a": 1}) == {"a": 1}, True,
               "fehlende Tabelle darf nicht zum Absturz fuehren"))
+
+    tmp = tempfile.mkdtemp(prefix="ia-bom-")
+    try:
+        _bytes_schreiben(os.path.join(tmp, konfig.ZAHLEN_DATEI),
+                         BOM + b'{"riegel_bis_token": 123456}')
+        _bytes_schreiben(os.path.join(tmp, konfig.ZIELE_DATEI),
+                         BOM + b'{"bomziel": {"ssh": "nutzer@bom.invalid", "keys": []}}')
+        _bytes_schreiben(os.path.join(tmp, "tabelle.json"), BOM + b'{"a": 1}')
+        _bytes_schreiben(os.path.join(tmp, "text.md"), BOM + "Regel ä".encode("utf-8"))
+        with _konfig_umgelenkt(tmp):
+            p.append(("konfig.json mit BOM wird gelesen",
+                      konfig.zahl("riegel_bis_token") == 123456, True,
+                      "Windows-Editor und PowerShell schreiben ein BOM - mit utf-8 "
+                      "galten still die Vorgaben"))
+            p.append(("ziele.json mit BOM wird gelesen",
+                      konfig.ist_fern("bomziel"), True,
+                      "sonst verschwinden alle Fernziele ohne Meldung im Chat"))
+            p.append(("Tabelle mit BOM wird gelesen",
+                      konfig.tabelle("tabelle.json", vorgabe={}) == {"a": 1}, True,
+                      "register-texte.json fiel still auf die Vorgabe zurueck"))
+            p.append(("Text mit BOM ohne unsichtbares Zeichen",
+                      konfig.text("text.md") == "Regel ä", True,
+                      "regeln.md begann sonst mit U+FEFF"))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+    p.append(("nach der Umlenkung gilt wieder die Probenkonfiguration",
+              konfig.ist_fern(PROBE_ZIEL) and "bomziel" not in konfig.namen(), True,
+              "eine Probe darf die folgenden nicht mit ihrer Konfiguration verfaelschen"))
     return p
 
 
@@ -144,13 +239,13 @@ def _hookproben():
         p.append(("Wert ist weg: %s" % art, probe.split("=")[-1][-12:] in neu, False,
                   "getilgt heisst getilgt"))
     p.append(("harmloser Satz bleibt unberuehrt",
-              ernte.geheimnisse_tilgen("Das Passwort steht in der .env-Datei.")[1],
-              0, "Fliesstext ist keine Zuweisung — Fehlalarm zerstoert Protokolle"))
+              ernte.geheimnisse_tilgen("Das Passwort steht in der .env-Datei.")[1] == 0,
+              True, "Fliesstext ist keine Zuweisung — Fehlalarm zerstoert Protokolle"))
     p.append(("Feldname bleibt nach dem Tilgen stehen",
               "api_key" in ernte.geheimnisse_tilgen('"api_key": "' + "x" * 20 + '"')[0],
               True, "ohne Feldname ist der Zusammenhang verloren"))
     p.append(("Schonfrist 0 gibt alles frei",
-              ernte._schonfrist_grenze(["abc", "def"], 0), 2,
+              ernte._schonfrist_grenze(["abc", "def"], 0) == 2, True,
               "SessionStart haertet aeltere Transkripte vollstaendig"))
     p.append(("Schonfrist schuetzt das Ende",
               ernte._schonfrist_grenze(["a" * 100, "b" * 100], 150) == 0, True,
@@ -169,7 +264,8 @@ def _hookproben():
         n = ernte.transkript_haerten(pfad, schonfrist_zeichen=0)
         with open(pfad, "r", encoding="utf-8", newline="") as f:
             danach = f.read()
-        p.append(("Tilgung im Transkript greift", n, 1, "Geheimnis in einer alten Zeile"))
+        p.append(("Tilgung im Transkript greift", n == 1, True,
+                  "Geheimnis in einer alten Zeile"))
         p.append(("Zeilentrenner U+2028 zerlegt keine Zeile",
                   danach.count("\n") == 2 and all(json.loads(z) for z in danach.split("\n") if z),
                   True, "splitlines() trennte dort und zerbrach das JSON des Transkripts"))
@@ -212,7 +308,7 @@ def _verdichtungsproben():
     try:
         t1 = _transkript(tmp, "a.jsonl", [_antwort(150000)])
         tok, verdichtet = ernte.kontext_token(t1)
-        p.append(("Kontext kommt aus der usage-Zeile", tok, 150000 == tok,
+        p.append(("Kontext kommt aus der usage-Zeile", tok == 150000, True,
                   "Zeichen zu zaehlen verfehlte das Verhaeltnis um bis zu Faktor 14"))
         p.append(("ohne Verdichtungsmarke nicht verdichtet", verdichtet, False,
                   "sonst wuerde der Auftrag bei jedem Prompt neu scharf"))
@@ -244,6 +340,18 @@ def _verdichtungsproben():
                   "ohne Kennmarke ist die Uebernahme nicht pruefbar"))
         p.append(("Anweisung traegt das Destillat", "Inhalt-Probe" in anweisung, True,
                   "das Destillat ist der Grundstock der Zusammenfassung"))
+        destillat_bom = os.path.join(tmp, "destillat-bom.md")
+        _bytes_schreiben(destillat_bom, BOM + b"# Destillat\nInhalt-Probe")
+        mit_bom = ernte.verdichtungs_anweisung(
+            "ia-probe-1", {"destillat": destillat_bom, "auftrag_ts": 0})
+        p.append(("Destillat mit BOM geht ohne BOM in die Anweisung",
+                  "\n# Destillat\nInhalt-Probe" in mit_bom and "\ufeff" not in mit_bom,
+                  True, "ein mit PowerShell gespeichertes Destillat trug das BOM in die Zusammenfassung"))
+        wiedervorlage = _modul("wiedervorlage")
+        p.append(("Destillat mit BOM wird beim Sitzungsstart ohne BOM vorgelegt",
+                  wiedervorlage is not None
+                  and wiedervorlage.lesen(destillat_bom, 1000) == "# Destillat\nInhalt-Probe",
+                  True, "sonst beginnt die Vorlage mit einem unsichtbaren Zeichen"))
 
         t3 = _transkript(tmp, "c.jsonl", [
             _antwort(100),
@@ -281,6 +389,13 @@ def _verdichtungsproben():
                                           zeit4 - 60)[0] == "fehlt", True,
                   "sonst bliebe ein echter Ausfall der Anweisung unbemerkt"))
 
+        konf = os.path.join(tmp, "konf")
+        os.makedirs(konf)
+        with open(os.path.join(konf, "konfig.json"), "w", encoding="utf-8") as f:
+            json.dump({"pfade": {"sitzungen": os.path.join(tmp, "sitzungen"),
+                                 "state": os.path.join(tmp, "state"),
+                                 "zettelkasten": os.path.join(tmp, "zk")}}, f)
+
         proj = os.path.join(tmp, "projekt-kennmarke")
         os.makedirs(os.path.join(proj, ".claude", "state"))
         t5 = _transkript(tmp, "e.jsonl", [
@@ -289,24 +404,30 @@ def _verdichtungsproben():
              "message": {"content":
                          "Zusammenfassung [infinite-accuracy Kennmarke ia-probe-5]"}},
             _antwort(1000)])
-        ernte.stand_schreiben(proj, "sid-5",
-                              {"kennmarke": "ia-probe-5", "kennmarke_ts": 1000})
-        _hook_prozess(os.path.join(_hookordner(), "regelschub.py"),
-                      {"session_id": "sid-5", "transcript_path": t5, "cwd": proj,
-                       "hook_event_name": "UserPromptSubmit", "prompt": "x"}, {})
+        echt_pfad = ernte.stand_pfad(proj, "sid-5")
+        echt = _datei_zustand(echt_pfad)
+        with _konfig_umgelenkt(konf):
+            umgelenkt = ernte.stand_pfad(proj, "sid-5")
+            ernte.stand_schreiben(proj, "sid-5",
+                                  {"kennmarke": "ia-probe-5", "kennmarke_ts": 1000})
+            _hook_prozess(os.path.join(_hookordner(), "regelschub.py"),
+                          {"session_id": "sid-5", "transcript_path": t5, "cwd": proj,
+                           "hook_event_name": "UserPromptSubmit", "prompt": "x"},
+                          {"IA_KONFIG": konf})
+            geprueft = ernte.stand_lesen(proj, "sid-5").get("kennmarke_geprueft")
         p.append(("Kennmarke wird auch nach der ersten Antwort noch geprueft",
-                  ernte.stand_lesen(proj, "sid-5").get("kennmarke_geprueft"), "ok",
+                  geprueft == "ok", True,
                   "beim ersten Prompt nach der Verdichtung fehlt die Zusammenfassung oft noch"))
+        p.append(("Kennmarken-Probe schreibt in den Probenordner",
+                  _liegt_unter(umgelenkt, tmp) and not _liegt_unter(echt_pfad, tmp), True,
+                  "sonst legt jeder Probenlauf last-sid-5.json im echten Stand an"))
+        p.append(("Kennmarken-Probe laesst den echten Stand unberuehrt",
+                  _datei_zustand(echt_pfad) == echt, True,
+                  "der Pruefstand darf nicht veraendern, was er prueft"))
         p.append(("Ablage-Auftrag ueberlebt geschweifte Klammern",
                   "{eigene}" in regelschub.auftrag_text(200000, "x{eigene}y", "e.json"), True,
                   "str.format wuerde hier abstuerzen"))
 
-        konf = os.path.join(tmp, "konf")
-        os.makedirs(konf)
-        with open(os.path.join(konf, "konfig.json"), "w", encoding="utf-8") as f:
-            json.dump({"pfade": {"sitzungen": os.path.join(tmp, "sitzungen"),
-                                 "state": os.path.join(tmp, "state"),
-                                 "zettelkasten": os.path.join(tmp, "zk")}}, f)
         t4 = _transkript(tmp, "d.jsonl", [_antwort(200000)])
         eingabe = {"hook_event_name": "PreCompact", "trigger": "auto",
                    "transcript_path": t4, "session_id": "probe-sitzung", "cwd": tmp}
@@ -322,6 +443,198 @@ def _verdichtungsproben():
         p.append(("ohne Einstellung kein Zugriff auf den echten Stand",
                   "kennmarke" in stand, False,
                   "der Probenprozess schreibt nur in seinen Probenordner"))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+    return p
+
+
+def _gedaechtnisdatei(ordner, name, typ, beschreibung, modified=None, zeit=None):
+    kopf = ["---", "name: %s" % name, "description: %s" % beschreibung,
+            "metadata:", "  type: %s" % typ]
+    if modified:
+        kopf.append("  modified: %s" % modified)
+    kopf += ["---", "", "Inhalt %s" % name, ""]
+    pfad = os.path.join(ordner, name + ".md")
+    with open(pfad, "w", encoding="utf-8", newline="\n") as f:
+        f.write("\n".join(kopf))
+    if zeit is not None:
+        os.utime(pfad, (zeit, zeit))
+    return pfad
+
+
+def _index_lesen(text, kopf):
+    """(Dateistaemme der ganzen Zeilen, Schlagworte) aus einem Kurzindex."""
+    ganz, worte = [], []
+    anfang = "- %s " % kopf
+    for zeile in text.split("\n"):
+        if zeile.startswith("- [") and "](" in zeile:
+            ganz.append(zeile.split("](", 1)[1].split(")", 1)[0][:-3])
+        elif zeile.startswith(anfang) or zeile.startswith("  "):
+            rest = zeile[len(anfang):] if zeile.startswith(anfang) else zeile
+            worte += [w.strip() for w in rest.split("·") if w.strip()]
+    return ganz, worte
+
+
+def _gedaechtnisproben():
+    """Kurzindex innerhalb der Ladegrenze - gebaut in eigenen Temp-Ordnern."""
+    _, _, ged = _hooks_laden()
+    if ged is None:
+        return [("Gedaechtnisindex (uebersprungen)", True, True,
+                 "ohne hooks/-Ordner gibt es nichts zu pruefen")]
+    p = []
+    t = ged.texte()
+    kopf = t["schlagworte"]
+    tmp = tempfile.mkdtemp(prefix="ia-gedaechtnis-")
+    try:
+        klein = os.path.join(tmp, "klein")
+        os.makedirs(klein)
+        _gedaechtnisdatei(klein, "a-regel", "feedback", "Regel A")
+        _gedaechtnisdatei(klein, "b-vorhaben", "project", "Vorhaben B")
+        _gedaechtnisdatei(klein, "c-vorhaben", "project", "Vorhaben C")
+        _bytes_schreiben(os.path.join(klein, "d-bom.md"), BOM + (
+            "---\nname: d-bom\ndescription: Mit BOM\nmetadata:\n  type: user\n"
+            "---\n\nInhalt\n").encode("utf-8"))
+        eintraege = ged.lesen(klein)
+        text, info = ged.index_bauen(eintraege, t)
+        rub = t["rubriken"]
+        erwartet = "\n".join([
+            t["kopfzeile"], "", t["vorspann"], "",
+            "## %s" % rub["feedback"], "", "- [a-regel](a-regel.md) — Regel A", "",
+            "## %s" % rub["user"], "", "- [d-bom](d-bom.md) — Mit BOM", "",
+            "## %s" % rub["project"], "",
+            "- [b-vorhaben](b-vorhaben.md) — Vorhaben B",
+            "- [c-vorhaben](c-vorhaben.md) — Vorhaben C"]) + "\n"
+        p.append(("kleiner Index bleibt vollstaendig und unveraendert",
+                  text == erwartet and info["kurz"] == 0 and info["weg"] == 0, True,
+                  "passt der Index, darf die Kuerzung nichts aendern"))
+        p.append(("Gedaechtnisdatei mit BOM behaelt ihren Typ",
+                  [e["typ"] for e in eintraege if e["datei"] == "d-bom.md"] == ["user"],
+                  True, "mit BOM griff das Kopfmuster nicht - Sonstiges, ohne Beschreibung"))
+
+        gross = os.path.join(tmp, "gross")
+        os.makedirs(gross)
+        basis = 1700000000
+        for i in range(40):
+            _gedaechtnisdatei(gross, "regel-%03d" % i, "feedback",
+                              "Regel %d, alt, aber immer ganz im Index" % i,
+                              zeit=basis - 86400 * 400 + i)
+        zeit = {}
+        for i in range(300):
+            zeit["vorhaben-%03d" % i] = basis + 60 * ((i * 7919) % 300)
+            modified = None
+            if i % 2 == 0:
+                modified = time.strftime("%Y-%m-%dT%H:%M:%S.000Z",
+                                         time.gmtime(zeit["vorhaben-%03d" % i]))
+            _gedaechtnisdatei(gross, "vorhaben-%03d" % i, "project",
+                              "Vorhaben %d mit einer langen Beschreibung, die den Index "
+                              "fuellt, bis er an die Ladegrenze stoesst" % i,
+                              modified=modified,
+                              zeit=None if modified else zeit["vorhaben-%03d" % i])
+        eintraege = ged.lesen(gross)
+        text, info = ged.index_bauen(eintraege, t, 190, 24000)
+        zeilen, zeichen = ged.index_mass(text, mit_cr=True)
+        ganz, worte = _index_lesen(text, kopf)
+        p.append(("gekuerzter Index haelt das Budget",
+                  zeilen <= 190 and zeichen <= 24000 and info["passt"], True,
+                  "was ueber der Ladegrenze steht, laedt Claude Code nicht - still"))
+        p.append(("gekuerzter Index nennt jeden Eintrag genau einmal",
+                  sorted(ganz + worte) == sorted(e["datei"][:-3] for e in eintraege), True,
+                  "ein Eintrag, der nirgends steht, wird nie nachgeschlagen"))
+        p.append(("grosser Index kuerzt zu Schlagworten statt wegzulassen",
+                  info["kurz"] > 0 and info["weg"] == 0, True,
+                  "ein Schlagwort kostet nur einen Bruchteil einer ganzen Zeile"))
+        p.append(("Regeln stehen immer als ganze Zeile",
+                  all(("regel-%03d" % i) in ganz for i in range(40)), True,
+                  "wie ich arbeiten soll, muss bei jedem Start vollstaendig da sein"))
+        ganze_vorhaben = sorted(g for g in ganz if g.startswith("vorhaben-"))
+        neueste = sorted(sorted(zeit, key=lambda s: -zeit[s])[:len(ganze_vorhaben)])
+        p.append(("ganze Zeilen gehen an die juengsten Vorhaben",
+                  bool(ganze_vorhaben) and ganze_vorhaben == neueste, True,
+                  "modified aus dem Kopf zaehlt vor der Dateizeit"))
+        hinweis = (t["gekuerzt"].replace("{kurz}", str(info["kurz"]))
+                   .replace("{gesamt}", str(info["gesamt"])))
+        p.append(("Kopf sagt, dass gekuerzt wurde",
+                  hinweis in text.split("\n## ", 1)[0], True,
+                  "sonst haelt man die Schlagwortzeile fuer den ganzen Bestand"))
+        p.append(("Schlagwortzeilen bleiben kurz",
+                  all(len(z) <= 200 for z in text.split("\n")
+                      if z.startswith("- %s " % kopf) or z.startswith("  ")), True,
+                  "eine ueberlange Zeile verschiebt die Zeichenzaehlung"))
+
+        viele = [{"datei": "e%04d.md" % i, "slug": "e%04d" % i, "typ": "project",
+                  "beschreibung": "Eintrag %d" % i, "aktualitaet": float(i)}
+                 for i in range(2000)]
+        text, info = ged.index_bauen(viele, t, 190, 3000)
+        zeilen, zeichen = ged.index_mass(text, mit_cr=True)
+        p.append(("Extremfall haelt das Budget",
+                  zeilen <= 190 and zeichen <= 3000 and info["passt"], True,
+                  "auch bei zu vielen Eintraegen kein stilles Abschneiden"))
+        p.append(("Extremfall laesst die aeltesten weg und sagt es im Kopf",
+                  info["weg"] > 0
+                  and t["weggelassen"].replace("{fehlt}", str(info["weg"]))
+                  in text.split("\n## ", 1)[0]
+                  and info["weg_liste"] == sorted("e%04d.md" % i for i in range(info["weg"])),
+                  True, "wer fehlt, steht nur in REGISTER.md - der Kopf muss es sagen"))
+
+        text, info = ged.index_bauen(eintraege, t, 20, 24000)
+        p.append(("Zeilengrenze greift fuer sich allein",
+                  ged.index_mass(text, mit_cr=True)[0] <= 20
+                  and info["kurz"] + info["weg"] > 0, True,
+                  "Claude Code schneidet auch nach 200 Zeilen ab"))
+        p.append(("Zaehlung mit Zeilenenden stimmt",
+                  ged.index_mass("a\nb\n", mit_cr=True) == (2, 6)
+                  and ged.index_mass("a\r\nb\r\n", mit_cr=True) == (2, 6)
+                  and ged.index_mass("", mit_cr=True) == (0, 0)
+                  and ged.index_mass("a\nb") == (2, 3), True,
+                  "unter Windows schreibt --register CRLF - gezaehlt wird, was auf der Platte steht"))
+
+        rev = os.path.join(tmp, "rev")
+        os.makedirs(rev)
+        _gedaechtnisdatei(rev, "r-regel", "feedback", "Regel R")
+        with open(os.path.join(rev, "MEMORY.md"), "w", encoding="utf-8", newline="\n") as f:
+            f.write("- zeile\n" * 201)
+        vorher = [a for a, _ in ged.review(rev)[0]]
+        ged.register_bauen(rev, schreiben=True)
+        nachher = [a for a, _ in ged.review(rev)[0]]
+        with open(os.path.join(rev, "MEMORY.md"), "r", encoding="utf-8", newline="") as f:
+            zeilen, zeichen = ged.index_mass(f.read())
+        p.append(("zu langer Kurzindex wird gemeldet", "Kurzindex zu lang" in vorher, True,
+                  "sonst fehlt der Rest bei jedem Start still"))
+        p.append(("neu gebauter Kurzindex wird nicht mehr gemeldet",
+                  "Kurzindex zu lang" not in nachher and zeilen <= 200 and zeichen <= 25000,
+                  True, "--register ist der Ausweg, den die Meldung nennt"))
+        ged.register_bauen(gross, schreiben=True)
+        befunde = [a for a, _ in ged.review(gross)[0]]
+        p.append(("gekuerzter Index loest keine Meldung aus",
+                  "Kurzindex zu lang" not in befunde and "Kurzindex zu klein" not in befunde,
+                  True, "eine Warnung, die nach dem Ausweg bleibt, wird ignoriert"))
+
+        rev_cr = os.path.join(tmp, "rev-cr")
+        os.makedirs(rev_cr)
+        _gedaechtnisdatei(rev_cr, "r-regel", "feedback", "Regel R")
+        with open(os.path.join(rev_cr, "MEMORY.md"), "w", encoding="utf-8",
+                  newline="\r\n") as f:
+            f.write(("- " + "x" * 164 + "\n") * 149)
+        p.append(("Kurzindex nur mit CR ueber der Zeichengrenze wird gemeldet",
+                  "Kurzindex zu lang" in [a for a, _ in ged.review(rev_cr)[0]], True,
+                  "149 Zeilen: ohne CR 24.883 Zeichen, mit CR 25.032 - geladen wird mit CR"))
+
+        konf = os.path.join(tmp, "konf-budget")
+        os.makedirs(konf)
+        with open(os.path.join(konf, "konfig.json"), "w", encoding="utf-8") as f:
+            json.dump({"index_max_zeichen": 1500}, f)
+        with _konfig_umgelenkt(konf):
+            befunde = [a for a, _ in ged.review(gross)[0]]
+        p.append(("zu kleines Budget meldet Kurzindex zu klein",
+                  "Kurzindex zu klein" in befunde, True,
+                  "wer nicht einmal als Schlagwort passt, steht nur noch in REGISTER.md"))
+        with open(os.path.join(konf, "konfig.json"), "w", encoding="utf-8") as f:
+            json.dump({"index_max_zeilen": 500, "index_max_zeichen": 50000}, f)
+        with _konfig_umgelenkt(konf):
+            _, info = ged.index_bauen(ged.lesen(klein), t)
+        p.append(("Budget aus konfig.json wird auf die Ladegrenze gedeckelt",
+                  (info["max_zeilen"], info["max_zeichen"]) == (200, 25000), True,
+                  "ein Budget ueber der Ladegrenze liesse Claude Code wieder still abschneiden"))
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
     return p
@@ -429,6 +742,26 @@ def _zettelproben():
         leer, _ = zettel.ablegen({"eintraege": [{"thema": "x", "text": ""}]})
         p.append(("leere Ablage schreibt nichts", leer == 0, True,
                   "nichts Ablegbares heisst nichts geschrieben"))
+
+        bom_wurzel = os.path.join(tmp, "bom")
+        zettel.setzen_wurzel(bom_wurzel)
+        _bytes_schreiben(os.path.join(bom_wurzel, "Dossiers", "wegebau.md"),
+                         BOM + b"# Wegebau\n\nThemen-Dossier.\n")
+        p.append(("Dossier mit BOM wird unter seinem Namen gefunden",
+                  zettel.zettel_thema_aufloesen("Wege") == "Wegebau", True,
+                  "mit BOM trug der Name ein unsichtbares Zeichen und die Raute"))
+        uebersicht_bom = os.path.join(bom_wurzel, "Projekte", "forst", "Dossiers.md")
+        _bytes_schreiben(uebersicht_bom,
+                         BOM + b"# Dossiers - Forst\n\nTeilaspekt-Dossiers.\n")
+        zettel.ablegen({"quelle": "probe", "projekt": "Forst", "eintraege": [
+            {"titel": "Rueckegasse", "thema": "Erschliessung", "text": "Abstand 40 m",
+             "schlagworte": ["rueckegasse"]}]})
+        with open(uebersicht_bom, "rb") as f:
+            seite = f.read().decode("utf-8-sig")
+        p.append(("Projektuebersicht mit BOM behaelt genau einen Kopf",
+                  seite.count("# Dossiers") == 1
+                  and "[[Projekte/forst/Dossiers/erschliessung]]" in seite, True,
+                  "mit BOM galt der Kopf als fehlend und wurde ein zweites Mal davorgesetzt"))
     finally:
         zettel.setzen_wurzel(alt_zk)
         zettel.setzen_state(alt_state)
@@ -467,12 +800,35 @@ def _aktualisierungsproben():
         p.append(("gewoehnlicher Archivpfad wird angenommen",
                   akt.pfad_sicher("infinite-accuracy-2.0.0/infinite-accuracy/hooks/ernte.py"),
                   True, "Regelfall"))
+        tmp = tempfile.mkdtemp(prefix="ia-bom-akt-")
+        try:
+            _bytes_schreiben(os.path.join(tmp, akt.META, "installiert.json"),
+                             BOM + b'{"version": "9.9.9"}')
+            p.append(("installiert.json mit BOM wird gelesen",
+                      (akt.installiert(tmp) or {}).get("version") == "9.9.9", True,
+                      "sonst gilt eine Installation als fehlend und die Update-Pruefung schweigt"))
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
 
     inst, paket = _installer_laden()
     if inst is None:
         p.append(("Installer-Proben (uebersprungen: kein vollstaendiges Paket)", True, True,
                   "in einer Projektinstallation liegt nur ein Teil des Pakets"))
         return p
+
+    tmp = tempfile.mkdtemp(prefix="ia-bom-inst-")
+    try:
+        pfad = os.path.join(tmp, "installation.json")
+        _bytes_schreiben(pfad, BOM + b'{"ausnahmen": ["skills/einrichten"]}')
+        try:
+            gelesen = inst._json_lesen(pfad)
+        except Exception:                                         # noqa: BLE001
+            gelesen = None
+        p.append(("Installer liest JSON mit BOM",
+                  gelesen == {"ausnahmen": ["skills/einrichten"]}, True,
+                  "eine mit PowerShell gespeicherte installation.json fiel still weg"))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
 
     fehler = inst.manifest_pruefen(paket)
     p.append(("Pruefsummen des Pakets stimmen", not fehler, True,
@@ -798,7 +1154,7 @@ def _tagproben():
     p.append(("Tag der Version liefert ein Archiv mit Paketdateien", not fehler, True,
               "aktualisierung.py laedt genau dieses Archiv (%s)" % fehler))
     try:
-        tagversion = json.loads(archiv["version.json"].decode("utf-8")).get("version")
+        tagversion = json.loads(archiv["version.json"].decode("utf-8-sig")).get("version")
     except Exception:                                             # noqa: BLE001
         tagversion = None
     p.append(("Archiv des Tags traegt die Version aus version.json", tagversion == version,
@@ -883,6 +1239,7 @@ def proben():
     p.extend(_konfigproben())
     p.extend(_hookproben())
     p.extend(_verdichtungsproben())
+    p.extend(_gedaechtnisproben())
     p.extend(_zettelproben())
     p.extend(_tagproben())
     p.extend(_aktualisierungsproben())
@@ -919,6 +1276,23 @@ def proben():
                   abnahme.ist_veraendernd(befehl), False,
                   "legitimer Pruefbefehl — Falschalarm macht ihn unbrauchbar"))
 
+    tmp = tempfile.mkdtemp(prefix="ia-bom-abnahme-")
+    try:
+        punkte = os.path.join(tmp, "punkte.json")
+        _bytes_schreiben(punkte, BOM + b"[]")
+        _, aus = _skript(os.path.join(HIER, "abnahme.py"), punkte)
+        p.append(("Pruefpunkte mit BOM werden gelesen",
+                  "nichtleere Liste" in aus and "nicht lesbar" not in aus, True,
+                  "eine mit PowerShell gespeicherte Datei galt als nicht lesbar"))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+    p.append(("Erwartung ohne Wahrheitswert gilt als nicht erfuellt",
+              _erfuellt("ok", "ok"), False,
+              "bool(ist) == bool(soll) liess jede nichtleere Antwort als Treffer durch"))
+    p.append(("Wahrheitswerte werden streng verglichen",
+              _erfuellt("ok", True) and not _erfuellt("", True) and _erfuellt(0, False),
+              True, "Regelfall"))
     return p
 
 
@@ -936,15 +1310,16 @@ def main():
               "Dieser Lauf MUSS fehlschlagen.")
         print("=" * 72)
     for name, ist, soll, warum in ergebnisse:
-        if rot:
-            soll = not soll
-        ok = (bool(ist) == bool(soll))
-        if ok:
+        if _erfuellt(ist, soll, rot):
             bestanden += 1
+            continue
+        durchgefallen.append(name)
+        if not isinstance(soll, bool):
+            print("NICHT ERFUELLT  %s\n      -> Erwartung %r ist kein Wahrheitswert (%s)"
+                  % (name, soll, warum))
         else:
-            durchgefallen.append(name)
             print("NICHT ERFUELLT  %s\n      -> ist %r, erwartet %r (%s)"
-                  % (name, bool(ist), bool(soll), warum))
+                  % (name, bool(ist), soll != rot, warum))
     print("=" * 72)
     print("Pruefprotokoll maschinell: %d bestanden, %d durchgefallen, %d gesamt"
           % (bestanden, len(durchgefallen), len(ergebnisse)))

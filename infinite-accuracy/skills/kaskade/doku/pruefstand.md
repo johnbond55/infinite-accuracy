@@ -44,13 +44,25 @@ $ python pruefstand.py --rot     ->  0 bestanden, <n> durchgefallen   STATUS: ES
 
 ## Nebenwirkungen nur in eigenen Temp-Ordnern
 
-Die Schranken-Proben rufen reine Funktionen auf. Verdichtung, Zettelkasten und
-Installer werden Ende-zu-Ende geprobt — aber ausschließlich in Ordnern aus
-`tempfile.mkdtemp()`, die am Ende gelöscht werden. Der Hook-Prozess für
-PreCompact bekommt über `IA_KONFIG` eine Probenkonfiguration, deren Ablageorte
-im Temp-Ordner liegen. Es wird nichts ins echte Journal eingetragen, keine
-Verbindung aufgebaut, kein echter Stand gelesen oder angelegt. Die einzige
-Ausnahme liest nur: Im Quell-Repository fragen die Tag-Proben `git` ab
+Die Schranken-Proben rufen reine Funktionen auf. Verdichtung, Zettelkasten,
+Gedächtnisindex und Installer werden Ende-zu-Ende geprobt — aber
+ausschließlich in Ordnern aus `tempfile.mkdtemp()`, die am Ende gelöscht
+werden. Wer einen Stand schreibt, tut es in `_konfig_umgelenkt()` oder als
+Hook-Prozess mit `IA_KONFIG` auf die Probenkonfiguration
+(`_hook_prozess(…, {"IA_KONFIG": konf})`). Im Block zeigt `IA_KONFIG` im
+Prüfstand selbst und in jedem Hook-Prozess auf eine Probenkonfiguration, deren
+Ablageorte im Temp-Ordner liegen. Diese Konfiguration nennt unter `pfade`
+alle drei Orte (`sitzungen`, `state`, `zettelkasten`) — ohne Eintrag fällt der
+Zettelkasten auf das echte Projekt zurück. `zettel.py` legt seine Orte schon
+beim Import fest; die Zettelkasten-Proben lenken sie deshalb über
+`zettel.setzen_wurzel()` und `zettel.setzen_state()` in den Temp-Ordner und
+setzen sie im `finally` zurück. Es wird nichts ins echte Journal
+eingetragen, keine Verbindung aufgebaut, kein echter Stand angelegt oder
+verändert. Den echten Stand liest der Prüfstand nur als Beleg: Zeitstempel,
+Größe und Inhalt von `last-sid-5.json` vor und nach der Probe und
+`last-probe-sitzung.json` nach den PreCompact-Proben (darf keine Kennmarke
+tragen). Die einzige weitere Ausnahme liest ebenfalls nur: Im
+Quell-Repository fragen die Tag-Proben `git` ab
 (`rev-parse`, `ls-files`, `check-attr`, `for-each-ref`, `rev-list`, `archive`
 nach stdout) — ohne Netz, und das Archiv wird nur in einen eigenen Temp-Ordner
 `ia-tagarchiv-…` entpackt. In einer Projektinstallation ruft der Prüfstand
@@ -61,6 +73,14 @@ verändert den Zustand, den er prüfen soll; einer, der `ssh` oder das Netz
 braucht, läuft offline nicht mehr. Anlass: Eine erste Fassung von
 `ernte.stand_pfad()` legte beim bloßen Lesen den State-Ordner an — ein
 Probenlauf im Repository erzeugte dadurch `~/.claude/infinite-accuracy/state`.
+
+Zweiter Vorfall 17.09.2026: Die Kennmarken-Probe schrieb `last-sid-5.json` —
+im Prüfstand selbst und im Hook-Prozess `regelschub.py` — in den echten Stand:
+in einer Projektinstallation in den eingestellten State-Ordner, im Repository
+nach `~/.claude/infinite-accuracy/state`. `stand_pfad()` richtet sich nach der
+Konfiguration, nicht nach dem Projektordner der Probe. Seit 2.0.4 ist die
+Probe umgelenkt; zwei Proben weisen nach, dass sie in den Probenordner
+schreibt und den echten Stand unberührt lässt.
 
 ## Die Installer-Proben brauchen das ganze Paket
 
@@ -133,6 +153,21 @@ Grenzen:
 
 ---
 
+## Erwartungen sind Wahrheitswerte
+
+Jede Probe ist `(name, ist, erwartet, warum)`, und `erwartet` ist `True` oder
+`False`. Bis 2.0.3 verglich `main()` nur `bool(ist) == bool(erwartet)`. Eine
+Probe mit der Erwartung `"ok"` prüfte damit nur, ob überhaupt etwas
+zurückkam — auch `"fehlt"` hätte bestanden; `2` und `1` hießen nur „nicht
+null". Vier Proben hatten eine solche Erwartung, die Kennmarken-Probe
+darunter; eine fünfte berechnete ihre Erwartung aus dem Ergebnis selbst.
+
+Seit 2.0.4 gilt eine Erwartung, die kein Wahrheitswert ist, als nicht erfüllt,
+und die Ausgabe sagt es — auch unter `--rot`. Der Vergleich gehört in `ist`:
+`wert == "ok", True`. Zwei Proben halten die Regel selbst fest.
+
+---
+
 ## Warum die Proben wörtlich dastehen
 
 Jede Probe nennt ihren Fall im Klartext (`"Serverpfad mit Semikolon wird
@@ -153,3 +188,5 @@ Ausgabe, **was** nicht mehr stimmt — ohne dass jemand den Prüfstand lesen mus
 | fehlendes `git` im Repository still überspringen | die Schranke fällt unbemerkt aus |
 | leere Tagliste als „vorbereitet" werten | ein Klon ohne Tags lässt jede Änderung durch |
 | Abbruch der Installer-Folgeproben entfernen | die Folgeproben schreiben in ein nicht installiertes Projekt, der Lauf endet mit `FileNotFoundError` statt mit einem Urteil |
+| Erwartung als Wert statt als Wahrheitswert (`"ok"`, `2`) | die Probe bestünde bei jeder nichtleeren Antwort — seit 2.0.4 ist sie rot |
+| Stand-Probe ohne `_konfig_umgelenkt()` | jeder Probenlauf schreibt in den echten Stand des Projekts |

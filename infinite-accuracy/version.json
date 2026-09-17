@@ -1,12 +1,13 @@
 {
-  "version": "2.0.3",
+  "version": "2.0.4",
   "datum": "2026-09-17",
   "aenderungen": [
-    "Neue Schranke im Pruefstand: Im Quell-Repository vergleicht eine Gruppe den Paketordner Byte fuer Byte mit dem Archiv des Tags v<version>. Wird eine Paketdatei nach dem Tag geaendert und die Version stehen gelassen, ist der Pruefstand rot - bisher erreichte so eine Aenderung kein Projekt, und die Update-Pruefung schwieg",
-    "Vor dem Tag gilt eine angehobene Version als vorbereitet. Nach git tag laeuft der Pruefstand ein zweites Mal und prueft das Archiv des Tags gegen seine eigenen Pruefsummen. In einer Projektinstallation wird die Gruppe uebersprungen",
-    "EUPL-1.2-DE.txt reist im Paket mit (amtliche deutsche Fassung, byte-gleich mit der Wurzel) und wird nach .claude/infinite-accuracy/paket/ installiert. Proben pruefen den Gleichstand von Wurzel und Paket, die amtliche Pruefsumme und die Ausnahme von der Zeilenend-Normalisierung",
-    "SKILL.md und doku/README.md nennen die Lizenz und den Ort der Lizenztexte im Projekt",
-    "Pruefstand: Scheitert die Erstinstallation in der Installer-Probe, endet die Gruppe mit einer benannten roten Probe statt mit einem Traceback"
+    "MEMORY.md haelt die Ladegrenze von Claude Code ein (200 Zeilen, 25.000 Zeichen, unter Windows mit CR gezaehlt): --register baut den Kurzindex in ein Budget. Regeln und Nutzerangaben stehen zuerst, dann das Juengste; was nicht passt, steht nur als Schlagwort, und der Kopf sagt es. Bisher schnitt Claude Code still ab - im Projekt fehlten ab Zeile 153 die hinteren Vorhaben und alle Verweise",
+    "Die Gedaechtnispruefung meldet 'Kurzindex zu lang' (auch beim Sitzungsstart) und 'Kurzindex zu klein'; --register nennt Zeilen, Zeichen, Budget und wie viele Eintraege nur als Schlagwort stehen",
+    "Konfiguration, installiert.json, installation.json, settings.json beim Installieren, Pruefpunkte, Gedaechtnisdateien, Destillate, Rohprotokolle und Zettelkasten-Seiten werden auch mit BOM gelesen (utf-8-sig). Bisher galten bei einer mit dem Windows-Editor oder PowerShell gespeicherten Datei still die Vorgaben",
+    "Pruefstand: Die Kennmarken-Probe schrieb last-sid-5.json in den echten Stand. Sie laeuft jetzt in einer umgelenkten Konfiguration; zwei Proben weisen nach, dass der echte Stand unberuehrt bleibt",
+    "Pruefstand: Erwartungen muessen Wahrheitswerte sein. Bisher bestand eine Probe mit der Erwartung 'ok' bei jeder nichtleeren Antwort; die betroffenen Proben vergleichen jetzt exakt",
+    "Neue Einstellung index_max_zeilen (190); index_max_zeichen steht jetzt auf 24000. Beide werden auf die Ladegrenze gedeckelt"
   ],
-  "groesse_bytes": 338692
+  "groesse_bytes": 373003
 }

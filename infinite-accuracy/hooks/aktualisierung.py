@@ -75,7 +75,7 @@ def pfad_sicher(name):
 
 def installiert(basis):
     try:
-        with open(os.path.join(basis, META, "installiert.json"), "r", encoding="utf-8") as f:
+        with open(os.path.join(basis, META, "installiert.json"), "r", encoding="utf-8-sig") as f:
             d = json.load(f)
         return d if isinstance(d, dict) else None
     except Exception:                                             # noqa: BLE001
@@ -106,7 +106,7 @@ def entfernt_holen(zeitlimit=None):
     zeitlimit = zeitlimit or _zahl("aktualisierung_zeitlimit_sekunden", 3)
     url = URL_VERSION.format(repo=_repo(), zweig=_zeichen("aktualisierung_zweig", "main"))
     with _anfrage(url, zeitlimit) as r:
-        daten = json.loads(r.read().decode("utf-8"))
+        daten = json.loads(r.read().decode("utf-8-sig"))
     if not isinstance(daten, dict) or not version_tupel(daten.get("version")):
         raise ValueError("version.json ohne gueltige Version")
     return daten
@@ -228,7 +228,7 @@ def installieren(basis, version, erstinstallation=False, archiv=None, ohne_abnah
             print("Im Archiv liegt kein Paket %s — nichts geaendert." % PAKET)
             return 1
         try:
-            with open(os.path.join(paket, "version.json"), "r", encoding="utf-8") as f:
+            with open(os.path.join(paket, "version.json"), "r", encoding="utf-8-sig") as f:
                 traegt = json.load(f).get("version")
         except Exception as ex:                                   # noqa: BLE001
             print("version.json im Archiv unlesbar: %s — nichts geaendert." % ex)

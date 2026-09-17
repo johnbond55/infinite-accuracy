@@ -142,7 +142,7 @@ def main():
         print(__doc__)
         return 2
     try:
-        with open(sys.argv[1], "r", encoding="utf-8") as fh:
+        with open(sys.argv[1], "r", encoding="utf-8-sig") as fh:
             punkte = json.load(fh)
     except (OSError, ValueError) as ex:
         print("Pruefpunkte nicht lesbar: %s" % ex)

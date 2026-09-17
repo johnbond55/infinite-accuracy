@@ -147,3 +147,4 @@ wird, ist der Zähler wertlos — Nachträge gehören in den `ia-pruefer`, wo si
 | `docker\s+compose` ohne Unterbefehle | `docker compose ps` unbrauchbar |
 | Toleranz in `vergleichen()` | der Zähler interpretiert wieder, statt zu zählen |
 | „Heuristik" im Docstring zu „READ-ONLY" | eine Zusage ohne Deckung |
+| Prüfpunktdatei nur als `utf-8` lesen | eine mit PowerShell gespeicherte Datei (BOM) gilt als „nicht lesbar" |

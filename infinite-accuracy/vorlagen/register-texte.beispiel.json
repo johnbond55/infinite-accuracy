@@ -1,5 +1,8 @@
 {
   "kopfzeile": "# Gedächtnis — Schlagwort-Register",
+  "gekuerzt": "*Gekürzt auf die Ladegrenze: {kurz} von {gesamt} Einträgen stehen nur als Schlagwort — Datei `<schlagwort>.md`, Beschreibung in `REGISTER.md`.*",
+  "weggelassen": "*{fehlt} Einträge fehlen hier ganz (nur in `REGISTER.md`) — das Gedächtnis ausmisten.*",
+  "schlagworte": "Schlagworte:",
   "rubriken": {
     "feedback": "Wie ich arbeiten soll",
     "user": "Wer der Nutzer ist",
