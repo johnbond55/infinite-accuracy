@@ -1170,6 +1170,133 @@ def _tagproben():
     return p
 
 
+def _sprachdatei(ordner, name, text, bom=False):
+    pfad = os.path.join(ordner, name)
+    _bytes_schreiben(pfad, (BOM if bom else b"") + text.encode("utf-8"))
+    return pfad
+
+
+def _sprachzahl(funde, stufe=None, rid=None):
+    return sum(1 for f in funde
+               if (stufe is None or f["stufe"] == stufe)
+               and (rid is None or f["id"] == rid))
+
+
+def _sprachproben():
+    """Textpruefer des Skills sprachregel - Katalog, Zonen, Mass, Aufruf."""
+    ordner = os.path.join(os.path.dirname(HIER), "sprachregel")
+    pfad = os.path.join(ordner, "pruefe.py")
+    if not os.path.isfile(pfad):
+        return []
+    if ordner not in sys.path:
+        sys.path.insert(0, ordner)
+    try:
+        import pruefe                                             # noqa: E402
+    except Exception as ex:                                       # noqa: BLE001
+        return [("sprachregel: pruefe.py laedt", str(ex), True,
+                 "ohne Modul keine Textpruefung")]
+
+    p = []
+    kat = pruefe.katalog()
+    p.append(("sprachregel: Katalog traegt beide Stufen",
+              {r[1] for r in kat} == {"A", "B"}, True,
+              "Stufe A urteilt, Stufe B fragt - eine allein taugt nicht"))
+    p.append(("sprachregel: jede Regel nennt einen Ersatz",
+              all(r[3].strip() for r in kat), True,
+              "eine Regel ohne Ersatz laesst den Text anderswo ausufern"))
+    p.append(("sprachregel: Regelkennungen sind eindeutig",
+              len({r[0] for r in kat}) == len(kat), True,
+              "zwei Regeln mit derselben Kennung sind im Bericht nicht trennbar"))
+
+    p.append(("sprachregel: Fuellwort wird gefunden",
+              _sprachzahl(pruefe.pruefen("x", "Das ist eigentlich gut.\n"), "A"), True,
+              "Stufe A ist der Kern des Katalogs"))
+    p.append(("sprachregel: sauberer Satz bleibt ohne Fund",
+              pruefe.pruefen("x", "Der Dienst laeuft seit 12 Uhr.\n"), False,
+              "ein Falschalarm im Regelfall macht den Pruefer unbrauchbar"))
+    p.append(("sprachregel: Zitatzeile wird nicht geprueft",
+              pruefe.pruefen("x", "> Das ist eigentlich gut.\n"), False,
+              "fremder Wortlaut wird nicht geglaettet"))
+    p.append(("sprachregel: Codeblock wird nicht geprueft",
+              pruefe.pruefen("x", "```\neigentlich\n```\n"), False,
+              "Programmausgabe ist Beweisstueck"))
+    p.append(("sprachregel: Kopfblock wird nicht geprueft",
+              pruefe.pruefen("x", "---\nname: eigentlich\n---\n\nText.\n"), False,
+              "das Frontmatter ist Konfiguration, kein Satz"))
+    p.append(("sprachregel: Inline-Code wird maskiert",
+              pruefe.pruefen("x", "Das Wort `eigentlich` steht im Katalog.\n"), False,
+              "sonst loest der Regeltext seine eigene Regel aus"))
+    p.append(("sprachregel: --alles prueft die Zonen mit",
+              _sprachzahl(pruefe.pruefen("x", "> Das ist eigentlich gut.\n", True), "A"),
+              True, "mit --alles wird ausdruecklich alles geprueft"))
+
+    lang = "Der Dienst " + "sehr " * 30 + "laeuft.\n"
+    p.append(("sprachregel: ueberlanger Satz wird gemeldet",
+              _sprachzahl(pruefe.pruefen("x", lang), None, "B5"), True,
+              "Satzlaenge ist ein Mass, kein Wortlaut"))
+    liste = "".join("- Punkt %d mit sieben weiteren Woertern in dieser Zeile\n" % i
+                    for i in range(1, 5))
+    p.append(("sprachregel: Aufzaehlung meldet keine Ueberlaenge",
+              _sprachzahl(pruefe.pruefen("x", liste), None, "B5"), False,
+              "verbundene Listenpunkte galten sonst als ein Satz"))
+    p.append(("sprachregel: Aufzaehlung meldet keine Strichhaeufung",
+              _sprachzahl(pruefe.pruefen("x", "- a — b\n- c — d\n"), None, "B6"),
+              False, "je Punkt ein Strich ist kein Absatz mit vier Strichen"))
+
+    tmp = tempfile.mkdtemp(prefix="ia-sprachregel-")
+    try:
+        schmutzig = _sprachdatei(tmp, "schmutzig.md", "Das ist eigentlich gut.\n")
+        sauber = _sprachdatei(tmp, "sauber.md", "Der Dienst laeuft seit 12 Uhr.\n")
+        mitbom = _sprachdatei(tmp, "bom.md", "Das ist eigentlich gut.\n", True)
+        hinweise = _sprachdatei(tmp, "hinweise.md",
+                                "Die Datei wurde geschrieben.\n\n"
+                                "Der Wert wurde gesetzt.\n")
+
+        rc, aus = _skript(pfad, "--liste")
+        p.append(("sprachregel: --liste druckt den Katalog ohne Datei",
+                  rc == 0 and "A1" in aus and "B5" in aus, True,
+                  "die Anleitung verweist auf diese Ausgabe statt sie abzuschreiben"))
+        rc, aus = _skript(pfad)
+        p.append(("sprachregel: Aufruf ohne Datei meldet Aufruffehler",
+                  rc == 2, True, "kein stdin - ein wartender Aufruf haengt"))
+        rc, aus = _skript(pfad, schmutzig)
+        p.append(("sprachregel: Stufe-A-Fund faerbt rot",
+                  rc == 1 and "STATUS: ROT" in aus, True,
+                  "sonst laesst sich die Pruefung nicht in eine Abnahme haengen"))
+        rc, aus = _skript(pfad, sauber)
+        p.append(("sprachregel: sauberer Text bleibt gruen",
+                  rc == 0 and "STATUS: GRUEN" in aus, True, "Regelfall"))
+        rc, aus = _skript(pfad, mitbom)
+        p.append(("sprachregel: Datei mit BOM wird gelesen",
+                  rc == 1 and "A5" in aus, True,
+                  "mit PowerShell gespeicherte Dateien tragen ein BOM"))
+        rc, aus = _skript(pfad, "--schwelle", "0", hinweise)
+        p.append(("sprachregel: Schwelle 0 faerbt Hinweise rot",
+                  rc == 1, True, "die Schwelle muss wirken"))
+        rc, aus = _skript(pfad, "--schwelle", "9", hinweise)
+        p.append(("sprachregel: Hinweise unter der Schwelle bleiben gruen",
+                  rc == 0, True, "Stufe B ist eine Frage, kein Urteil"))
+        rc, aus = _skript(pfad, "--json", schmutzig)
+        try:
+            daten = json.loads(aus)
+        except Exception:                                         # noqa: BLE001
+            daten = {}
+        p.append(("sprachregel: --json liefert Funde und Urteil",
+                  daten.get("urteil") == "ROT" and bool(daten.get("funde")), True,
+                  "maschinell weiterverarbeitbar"))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+    for name in (os.path.join(ordner, "SKILL.md"),
+                 os.path.join(HIER, "doku", "sprachregel.md")):
+        if os.path.isfile(name):
+            with open(name, "r", encoding="utf-8-sig") as f:
+                p.append(("sprachregel: %s ohne Fund der Stufe A" % os.path.basename(name),
+                          _sprachzahl(pruefe.pruefen(name, f.read()), "A"), False,
+                          "ein Regeltext, der seine eigene Regel bricht, gilt nicht"))
+    return p
+
+
 def proben():
     """Liste von (name, ist_wahr, erwartet, warum). Nebenwirkungen nur in Temp-Ordnern."""
     s = _scratch()
@@ -1241,6 +1368,7 @@ def proben():
     p.extend(_verdichtungsproben())
     p.extend(_gedaechtnisproben())
     p.extend(_zettelproben())
+    p.extend(_sprachproben())
     p.extend(_tagproben())
     p.extend(_aktualisierungsproben())
 

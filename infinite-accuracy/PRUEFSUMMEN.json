@@ -1,5 +1,5 @@
 {
-  "version": "2.0.4",
+  "version": "2.1.0",
   "dateien": {
     "EUPL-1.2-DE.txt": {
       "sha256": "208705beb6df6c418b821f73b2cf192d9d5c6837a1a59391a261c7abe2fb0dce",
@@ -14,11 +14,11 @@
       "bytes": 19548
     },
     "version.json": {
-      "sha256": "1c54225931a639ec92317f2e2d767b8d98e6edd12ed32fe6d4593ecb0d26c597",
-      "bytes": 1537
+      "sha256": "bdc01dec43da96ef053f5a10189ff4fa0385d4120198b32b7109a57e80af7243",
+      "bytes": 1050
     },
     ".claude-plugin/plugin.json": {
-      "sha256": "07a4d02518f5f232016df23c7e7148de7b9801909dd12ac28e4f3ae02b63d056",
+      "sha256": "e892d94987775af800eca9c1823c1b4fb1387a4de815a09313592926bde02e4a",
       "bytes": 285
     },
     "agents/ia-ausfuehrer.md": {
@@ -70,8 +70,8 @@
       "bytes": 3035
     },
     "skills/kaskade/SKILL.md": {
-      "sha256": "0c04f2fecf3bc983c36fa16fe719e3594e3769eccc74c6d57f723033272cbb0e",
-      "bytes": 7184
+      "sha256": "399df315c035cff4ef27d0078485f8f3fd88205c30b4cfac87e79e11c8ff7892",
+      "bytes": 7280
     },
     "skills/kaskade/abnahme.py": {
       "sha256": "90ec414eb680447303c120fbcf85294bc228340e4143eea9786e81042afe9879",
@@ -86,12 +86,12 @@
       "bytes": 9258
     },
     "skills/kaskade/pruefstand.py": {
-      "sha256": "2d336df1402da077d8b3bdac92536df608a6f8c35dfa1832ac4f0eb253f13e5d",
-      "bytes": 67710
+      "sha256": "3e4ab73b5113cc15caaccb5e739e98e8fc80890c9b66cdbf74eff0070e9abd22",
+      "bytes": 74493
     },
     "skills/kaskade/doku/README.md": {
-      "sha256": "5575dc2effedc9606e42cd43066d812dc2a4822fb9cbe7e6bf6c72cb2f367161",
-      "bytes": 2808
+      "sha256": "487f484afda89c15481c2c20531c902289328c6406a0e938a90cb34a75a8f5ed",
+      "bytes": 2945
     },
     "skills/kaskade/doku/abnahme.md": {
       "sha256": "d4f867dac507f8d5cafbbd40b5b4355d14d88ee286e4d7380ddd735b7c0daf2b",
@@ -129,6 +129,10 @@
       "sha256": "b5359853cce5bb427ed76e068c27670a8f9c110ee752f67e41babfc88309db50",
       "bytes": 3943
     },
+    "skills/kaskade/doku/sprachregel.md": {
+      "sha256": "e2a8234770772a715f585847941833e35480e1a332cd077fb803c9d390c42cb5",
+      "bytes": 4627
+    },
     "skills/kaskade/doku/verdichtung.md": {
       "sha256": "20ce4f791ca4aba5fef90f17383ed4a4eba0d019bd0b8ef7aa808602766fdfa6",
       "bytes": 6371
@@ -140,6 +144,14 @@
     "skills/kaskade/doku/zettel.md": {
       "sha256": "75d304e9bd028d874182ed2e3b9634c9ae156d0372cde726570c8423bb34616f",
       "bytes": 3255
+    },
+    "skills/sprachregel/SKILL.md": {
+      "sha256": "40a09a9eb33ea7646fa66239f58d3bac609c1ebd636eb85329817d20d72fe61f",
+      "bytes": 5161
+    },
+    "skills/sprachregel/pruefe.py": {
+      "sha256": "286dc49c790902c6ca3fecf2512af9b99cb7cd9a8629b04baa95a41eba76fb36",
+      "bytes": 16332
     },
     "skills/zettel/SKILL.md": {
       "sha256": "a2756357dfe471aa03ec4f1ab57b88525073e78c7e792194277c047218d8ddb6",

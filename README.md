@@ -1,8 +1,9 @@
 # infinite-accuracy
 
-Ein Claude-Code-Paket für lange, im Grunde endlose Arbeitssitzungen. Es steuert
-die Verdichtung des Kontexts, legt Wissen in einem Zettelkasten ab, lagert
-Arbeitsgänge an kleinere Modelle aus und prüft jedes Ergebnis maschinell nach.
+Ein Claude-Code-Paket für lange, der Absicht nach endlose Arbeitssitzungen. Es
+steuert die Verdichtung des Kontexts, legt Wissen in einem Zettelkasten ab,
+lagert Arbeitsgänge an kleinere Modelle aus, prüft jedes Ergebnis maschinell
+nach und hält die Sprache knapp.
 
 ## Was es macht
 
@@ -28,6 +29,12 @@ Chat.
 
 **Regeln verblassen nicht.** Deine Arbeitsregeln stehen in einer Datei und
 werden bei jedem Prompt neu eingespeist.
+
+**Der Text bleibt knapp.** Der Skill `sprachregel` setzt das Ergebnis in den
+ersten Satz und streicht Füllwort, Werbewort, Floskel und Schlusssatz. Ein
+Prüfskript misst jeden Text gegen den Katalog und urteilt in zwei Stufen:
+Stufe A wird beseitigt, Stufe B zählt gegen eine Schwelle. Zitat,
+Programmausgabe, Fehlermeldung und Rechtstext bleiben unberührt.
 
 **Delegieren mit Abnahme.** Das planende Modell schneidet einen Arbeitsgang zu
 und gibt ihn an ein kleineres. Ein Skript führt vorher festgelegte Prüfbefehle
@@ -140,6 +147,7 @@ EUPL-1.2-DE.txt       amtliche deutsche Fassung der EUPL — reist mit und wird 
 skills/kaskade/       SKILL.md, abnahme.py, journal.py, konfig.py, pruefstand.py
 skills/kaskade/doku/  warum jeder Baustein so gebaut ist
 skills/zettel/        Zettelkasten: SKILL.md, zettel.py
+skills/sprachregel/   Sprachregeln und Textprüfer: SKILL.md, pruefe.py
 skills/einrichten/    Einrichtungsdialog
 agents/               ia-ausfuehrer (führt aus), ia-leser (liest), ia-pruefer (nimmt ab)
 hooks/                regelschub, ernte, wiedervorlage, haertung, nachlauf, gedaechtnis, aktualisierung

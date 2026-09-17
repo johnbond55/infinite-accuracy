@@ -1,13 +1,11 @@
 {
-  "version": "2.0.4",
+  "version": "2.1.0",
   "datum": "2026-09-17",
   "aenderungen": [
-    "MEMORY.md haelt die Ladegrenze von Claude Code ein (200 Zeilen, 25.000 Zeichen, unter Windows mit CR gezaehlt): --register baut den Kurzindex in ein Budget. Regeln und Nutzerangaben stehen zuerst, dann das Juengste; was nicht passt, steht nur als Schlagwort, und der Kopf sagt es. Bisher schnitt Claude Code still ab - im Projekt fehlten ab Zeile 153 die hinteren Vorhaben und alle Verweise",
-    "Die Gedaechtnispruefung meldet 'Kurzindex zu lang' (auch beim Sitzungsstart) und 'Kurzindex zu klein'; --register nennt Zeilen, Zeichen, Budget und wie viele Eintraege nur als Schlagwort stehen",
-    "Konfiguration, installiert.json, installation.json, settings.json beim Installieren, Pruefpunkte, Gedaechtnisdateien, Destillate, Rohprotokolle und Zettelkasten-Seiten werden auch mit BOM gelesen (utf-8-sig). Bisher galten bei einer mit dem Windows-Editor oder PowerShell gespeicherten Datei still die Vorgaben",
-    "Pruefstand: Die Kennmarken-Probe schrieb last-sid-5.json in den echten Stand. Sie laeuft jetzt in einer umgelenkten Konfiguration; zwei Proben weisen nach, dass der echte Stand unberuehrt bleibt",
-    "Pruefstand: Erwartungen muessen Wahrheitswerte sein. Bisher bestand eine Probe mit der Erwartung 'ok' bei jeder nichtleeren Antwort; die betroffenen Proben vergleichen jetzt exakt",
-    "Neue Einstellung index_max_zeilen (190); index_max_zeichen steht jetzt auf 24000. Beide werden auf die Ladegrenze gedeckelt"
+    "Neuer Skill sprachregel: Regeln fuer jeden Text, den ein Mensch liest - Ergebnis im ersten Satz, kein Fuellwort, keine Floskel, kein Schlusssatz, Aufzaehlung und Tabelle statt Fliesstext. Ausgenommen bleiben Zitat, Programmausgabe, Fehlermeldung, Rechtstext und Messwert",
+    "pruefe.py prueft Text gegen den Katalog: Stufe A ist ein Fund und wird beseitigt, Stufe B ist ein Hinweis und zaehlt gegen eine Schwelle (Vorgabe 10 je Datei). Codeblock, Kopfblock, Zitatzeile, Inline-Code und Verweisziel werden nicht geprueft, --alles hebt das auf. Ausgabe als Text oder --json, Exit 1 bei Rot",
+    "pruefe.py --liste druckt den vollstaendigen Regelkatalog mit allen Woertern - eine Wahrheit, keine zweite Liste daneben",
+    "Pruefstand: neue Proben fuer den Textpruefer - Katalog, Zonen, Maskierung, Satzmass, Listentrennung, Schwelle, BOM, Exitcodes; dazu die Probe, dass SKILL.md und doku/sprachregel.md selbst keinen Fund der Stufe A tragen"
   ],
-  "groesse_bytes": 373003
+  "groesse_bytes": 406139
 }

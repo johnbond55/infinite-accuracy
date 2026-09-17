@@ -1,5 +1,32 @@
 # Änderungen
 
+## 2.1.0 — 17.09.2026
+
+### Neu
+
+- **Skill `sprachregel`.** Regeln für jeden Text, den ein Mensch liest —
+  Antwort, Dokumentation, Notiz, Commit-Nachricht, Oberflächen-, Mail- und
+  Fehlertext. Das Ergebnis steht im ersten Satz, der Beleg danach, am Ende
+  keine Zusammenfassung. Gestrichen werden Füllwort, Weichmacher, Werbewort
+  ohne Messung, Höflichkeits- und Schlussfloskel, Metagerede über die eigene
+  Arbeit und die Ankündigung statt der Sache. Ab drei Größen Tabelle oder
+  Aufzählung statt Fließtext, jede Angabe genau einmal.
+  Unberührt bleiben Zitat, Programmausgabe, Fehlermeldung, Rechtstext und
+  Messwert: dort wäre Glätten eine Fälschung.
+- **`skills/sprachregel/pruefe.py`** prüft Text gegen den Katalog und urteilt
+  in zwei Stufen. Stufe A ist ein Fund und wird beseitigt; Stufe B ist ein
+  Hinweis — Passiv ohne Handelnden, Satzlänge, Absolutwort, Strichhäufung —
+  und zählt gegen eine Schwelle (Vorgabe 10 je Datei). Codeblock, Kopfblock,
+  Zitatzeile, Inline-Code und Verweisziel werden übersprungen, `--alles` hebt
+  das auf. Ausgabe als Text oder `--json`, Exit 1 bei Rot; das Werkzeug liest
+  Dateien und keine Standardeingabe.
+- **`pruefe.py --liste`** druckt den vollständigen Regelkatalog mit allen
+  Wörtern. Die Anleitung verweist darauf, statt ihn ein zweites Mal zu führen.
+- **Proben für den Textprüfer** im Prüfstand: Katalog, ausgenommene Zonen,
+  Maskierung, Satzmaß, Trennung am Listenzeichen, Schwelle, BOM, Exitcodes.
+  Dazu die Probe, dass `SKILL.md` und `doku/sprachregel.md` selbst keinen Fund
+  der Stufe A tragen.
+
 ## 2.0.4 — 17.09.2026
 
 ### Behoben

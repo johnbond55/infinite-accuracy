@@ -136,9 +136,10 @@ python pruefstand.py --rot    # STATUS: ESKALATION — muss fehlschlagen
 | `abnahme.py` | führt Prüfbefehle aus, vergleicht, zählt |
 | `journal.py` | registriert und löscht temporäre Arbeitsdateien |
 | `konfig.py` | Konfiguration: Ziele, Zahlen, Schalter, Ablageorte; ohne sie läuft alles lokal |
-| `pruefstand.py` | fährt Schranken, Hooks, Zettelkasten und Installer gegen Proben mit bekanntem Ausgang; im Quell-Repository auch den Paketordner gegen seinen Tag |
+| `pruefstand.py` | fährt Schranken, Hooks, Zettelkasten, Textprüfer und Installer gegen Proben mit bekanntem Ausgang; im Quell-Repository auch den Paketordner gegen seinen Tag |
 | `doku/` | warum alles so gebaut ist, je Modul eine Datei |
 | `../zettel/` | Zettelkasten: ablegen, suchen, lesen |
+| `../sprachregel/` | Sprachregeln für jeden Text an Menschen, dazu `pruefe.py` |
 | `../../agents/ia-ausfuehrer.md` | `model: sonnet` — führt aus, belegt jeden Schritt |
 | `../../agents/ia-leser.md` | `model: haiku` — liest und meldet, verändert nichts |
 | `../../agents/ia-pruefer.md` | `model: haiku` — nimmt ab, Skript hat Vorrang |

@@ -20,6 +20,7 @@ steht hier. Wer eine Zeile ändert, liest vorher den zugehörigen Abschnitt.
 | `../../hooks/gedaechtnis.py` | [gedaechtnis.md](gedaechtnis.md) | Kurzindex vs. Register, melden statt tilgen, Platzhalterfilter |
 | `../../hooks/aktualisierung.py`, `../../installieren.py` | [aktualisierung.md](aktualisierung.md) | Update-Weg, Prüfungen vor dem Schreiben, Rückbau, Veröffentlichen |
 | `../zettel/zettel.py` | [zettel.md](zettel.md) | Schichten, Entscheidungen beim Nachbau, Windows |
+| `../sprachregel/pruefe.py` | [sprachregel.md](sprachregel.md) | zwei Stufen, ausgenommene Zonen, Maskierung, Listentrennung, Grenzen |
 | — | [verdichtung.md](verdichtung.md) | wie die Verdichtung gesteuert wird und worauf das beruht |
 | — | [hintergrund.md](hintergrund.md) | warum delegiert und maschinell abgenommen wird |
 | `SKILL.md` | — | trägt seine Erklärung selbst; es ist Anleitung, nicht Code |

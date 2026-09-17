@@ -1,7 +1,7 @@
 {
   "name": "infinite-accuracy",
   "description": "Endloser Arbeitsfaden fuer Claude Code: gesteuerte Verdichtung, Zettelkasten, Delegation an kleinere Modelle mit maschineller Abnahme.",
-  "version": "2.0.4",
+  "version": "2.1.0",
   "license": "EUPL-1.2",
   "author": {
     "name": "Johannes Volmer"
